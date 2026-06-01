@@ -650,7 +650,7 @@ const STATE = {
 };
 
 const IP_NAMES = { sky: '光遇', nss: '逆水寒', yy: '燕云十六声' };
-const IP_PASSWORDS = { sky: 'sky2024', nss: 'nss2024', yy: 'yy2024' };
+const IP_PASSWORDS = { sky: 'sky2024', nss: 'nss2024', yy: 'yyxhsstdr2026' };
 const STATUS_LABELS = {
   draft: '草稿',
   vendor_detail_pending: '细则待确认',
@@ -783,7 +783,7 @@ function doLoginRole(role) {
   if (role === 'ops') {
     const pwd = document.getElementById('ops-pwd-input').value;
     const errEl = document.getElementById('ops-login-err');
-    if (pwd !== 'ops2024') { errEl.textContent = '口令错误'; errEl.style.display='block'; return; }
+    if (pwd !== 'yystdr2026') { errEl.textContent = '口令错误'; errEl.style.display='block'; return; }
     errEl.style.display = 'none';
     STATE.role = 'ops'; STATE.ip = null;
     enterPage('ops');
