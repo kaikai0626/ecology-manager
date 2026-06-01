@@ -828,6 +828,12 @@ function showPage(role) {
   } else {
     document.getElementById('page-login').classList.add('active');
   }
+  // 每次进入页面都从 D1 拉最新数据并重渲染
+  syncFromRemote().then(() => {
+    if (role === 'ops') { renderOpsActivities(); updateDataSummary(); if(STATE.opsTab==='creators') renderOpsCreators(); }
+    else if (role === 'vendor') renderVendorActivities();
+    else if (role === 'author') renderAuthorStatus();
+  }).catch(()=>{});
 }
 
 window.addEventListener('hashchange', function() {
@@ -3284,14 +3290,6 @@ function downloadWinnersTemplate() {
 
 // ========== INIT ==========
 (function init() {
-  // Pull latest data from D1 on startup (async, non-blocking)
-  syncFromRemote().then(() => {
-    // Re-render if already on a page
-    if (STATE.role === 'ops') { renderOpsActivities(); updateDataSummary(); }
-    else if (STATE.role === 'vendor') renderVendorActivities();
-    else if (STATE.role === 'author') renderAuthorStatus();
-  }).catch(()=>{});
-
   const hash = window.location.hash.replace('#','');
   const valid = ['ops','vendor','author'];
   // Hash = login-xxx → direct to login sub-screen (no session needed)
