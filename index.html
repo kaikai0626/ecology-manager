@@ -673,6 +673,40 @@ const TIMELINE_STEPS = [
 ];
 
 // ========== DATA ==========
+const API_BASE = '/api/db';
+const _syncDebounce = {};
+
+async function _remoteGet(key) {
+  try {
+    const r = await fetch(`${API_BASE}?key=${encodeURIComponent(key)}`);
+    const text = await r.text();
+    return text === 'null' ? null : JSON.parse(text);
+  } catch(e) { return null; }
+}
+async function _remoteSet(key, value) {
+  try {
+    await fetch(API_BASE, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key, value: JSON.stringify(value) })
+    });
+  } catch(e) {}
+}
+function _debouncedSync(key, value, ms=800) {
+  clearTimeout(_syncDebounce[key]);
+  _syncDebounce[key] = setTimeout(() => _remoteSet(key, value), ms);
+}
+
+// Pull latest data from D1 on load, merge into localStorage
+async function syncFromRemote() {
+  const [remoteData, remoteUsers] = await Promise.all([
+    _remoteGet('ecology_data_v1'),
+    _remoteGet('ecology_users_v1')
+  ]);
+  if (remoteData) localStorage.setItem('ecology_data_v1', JSON.stringify(remoteData));
+  if (remoteUsers) localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
+}
+
 function getData() {
   try {
     const raw = localStorage.getItem('ecology_data_v1');
@@ -682,6 +716,7 @@ function getData() {
 }
 function saveData(data) {
   localStorage.setItem('ecology_data_v1', JSON.stringify(data));
+  _debouncedSync('ecology_data_v1', data);
 }
 function getActivities() { return getData().activities || {}; }
 function getActivity(id) { return getActivities()[id]; }
@@ -1830,7 +1865,9 @@ function getUsers() {
   return {};
 }
 function saveUsers(users) {
-  localStorage.setItem('ecology_users_v1', JSON.stringify({ users }));
+  const val = { users };
+  localStorage.setItem('ecology_users_v1', JSON.stringify(val));
+  _debouncedSync('ecology_users_v1', val);
 }
 function getUser(username) { return getUsers()[username]; }
 function saveUser(user) {
@@ -3248,6 +3285,14 @@ function downloadWinnersTemplate() {
 
 // ========== INIT ==========
 (function init() {
+  // Pull latest data from D1 on startup (async, non-blocking)
+  syncFromRemote().then(() => {
+    // Re-render if already on a page
+    if (STATE.role === 'ops') { renderOpsActivities(); updateDataSummary(); }
+    else if (STATE.role === 'vendor') renderVendorActivities();
+    else if (STATE.role === 'author') renderAuthorStatus();
+  }).catch(()=>{});
+
   const hash = window.location.hash.replace('#','');
   const valid = ['ops','vendor','author'];
   // Hash = login-xxx → direct to login sub-screen (no session needed)
