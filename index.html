@@ -710,12 +710,26 @@ async function syncFromRemote() {
     try {
       const localRaw = localStorage.getItem('ecology_users_v1');
       const localUsers = localRaw ? (JSON.parse(localRaw).users || {}) : {};
-      const merged = Object.assign({}, localUsers, remoteUsers.users || {});
+      const remote = remoteUsers.users || {};
+      // 合并策略：取两端都存在的用户中 reviewedAt/updatedAt 更新的版本；本地独有的保留；远端独有的保留
+      const merged = {};
+      const allKeys = new Set([...Object.keys(localUsers), ...Object.keys(remote)]);
+      let hasLocalNewer = false;
+      allKeys.forEach(k => {
+        const l = localUsers[k], r = remote[k];
+        if (!r) { merged[k] = l; hasLocalNewer = true; return; } // 本地独有
+        if (!l) { merged[k] = r; return; } // 远端独有
+        // 两端都有：取时间戳更新的
+        const lt = new Date(l.reviewedAt || l.createdAt || 0).getTime();
+        const rt = new Date(r.reviewedAt || r.createdAt || 0).getTime();
+        if (lt > rt) { merged[k] = l; hasLocalNewer = true; }
+        else { merged[k] = r; }
+      });
       localStorage.setItem('ecology_users_v1', JSON.stringify({ users: merged }));
-      // 把本地独有用户也推送到远端
-      const localOnly = Object.keys(localUsers).filter(k => !(remoteUsers.users || {})[k]);
-      if (localOnly.length > 0) {
-        _debouncedSync('ecology_users_v1', { users: merged }, 200);
+      // 如果本地有更新的数据，立即推送合并结果到远端
+      if (hasLocalNewer) {
+        clearTimeout(_syncDebounce['ecology_users_v1']);
+        _remoteSet('ecology_users_v1', { users: merged });
       }
     } catch(e) {
       localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
