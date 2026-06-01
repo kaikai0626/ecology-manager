@@ -693,48 +693,25 @@ async function _remoteSet(key, value) {
   } catch(e) {}
 }
 function _debouncedSync(key, value, ms=800) {
+  // 保留签名兼容性，实际直接立即同步
   clearTimeout(_syncDebounce[key]);
   _syncDebounce[key] = setTimeout(() => _remoteSet(key, value), ms);
 }
 
-// Pull latest data from D1 on load, merge into localStorage
+// 立即同步到 D1（写操作统一走这里）
+async function _pushNow(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+  try { await _remoteSet(key, value); } catch(e) {}
+}
+
+// Pull latest data from D1（直接用远端覆盖，远端是权威）
 async function syncFromRemote() {
   const [remoteData, remoteUsers] = await Promise.all([
     _remoteGet('ecology_data_v1'),
     _remoteGet('ecology_users_v1')
   ]);
-  // 活动数据：远端优先（运营是权威来源）
   if (remoteData) localStorage.setItem('ecology_data_v1', JSON.stringify(remoteData));
-  // 用户数据：合并，远端 + 本地，以远端状态为准，但不丢弃本地独有用户
-  if (remoteUsers) {
-    try {
-      const localRaw = localStorage.getItem('ecology_users_v1');
-      const localUsers = localRaw ? (JSON.parse(localRaw).users || {}) : {};
-      const remote = remoteUsers.users || {};
-      // 合并策略：取两端都存在的用户中 reviewedAt/updatedAt 更新的版本；本地独有的保留；远端独有的保留
-      const merged = {};
-      const allKeys = new Set([...Object.keys(localUsers), ...Object.keys(remote)]);
-      let hasLocalNewer = false;
-      allKeys.forEach(k => {
-        const l = localUsers[k], r = remote[k];
-        if (!r) { merged[k] = l; hasLocalNewer = true; return; } // 本地独有
-        if (!l) { merged[k] = r; return; } // 远端独有
-        // 两端都有：取时间戳更新的
-        const lt = new Date(l.reviewedAt || l.createdAt || 0).getTime();
-        const rt = new Date(r.reviewedAt || r.createdAt || 0).getTime();
-        if (lt > rt) { merged[k] = l; hasLocalNewer = true; }
-        else { merged[k] = r; }
-      });
-      localStorage.setItem('ecology_users_v1', JSON.stringify({ users: merged }));
-      // 如果本地有更新的数据，立即推送合并结果到远端
-      if (hasLocalNewer) {
-        clearTimeout(_syncDebounce['ecology_users_v1']);
-        _remoteSet('ecology_users_v1', { users: merged });
-      }
-    } catch(e) {
-      localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
-    }
-  }
+  if (remoteUsers) localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
 }
 
 function getData() {
@@ -746,7 +723,7 @@ function getData() {
 }
 function saveData(data) {
   localStorage.setItem('ecology_data_v1', JSON.stringify(data));
-  _debouncedSync('ecology_data_v1', data);
+  _remoteSet('ecology_data_v1', data); // 立即同步
 }
 function getActivities() { return getData().activities || {}; }
 function getActivity(id) { return getActivities()[id]; }
@@ -1903,7 +1880,7 @@ function getUsers() {
 function saveUsers(users) {
   const val = { users };
   localStorage.setItem('ecology_users_v1', JSON.stringify(val));
-  _debouncedSync('ecology_users_v1', val);
+  _remoteSet('ecology_users_v1', val); // 立即同步
 }
 function getUser(username) { return getUsers()[username]; }
 function saveUser(user) {
@@ -2015,10 +1992,7 @@ function reviewCreator(username, status) {
   if (!user) return;
   user.status = status;
   user.reviewedAt = now();
-  saveUser(user);
-  // 审批操作立即同步到 D1
-  clearTimeout(_syncDebounce['ecology_users_v1']);
-  _remoteSet('ecology_users_v1', { users: getUsers() });
+  saveUser(user); // saveUsers 内已立即同步
   renderOpsCreators();
   toast(status === 'approved' ? `✅ 已通过 ${username} 的注册申请` : `已拒绝 ${username}`);
 }
@@ -2737,9 +2711,7 @@ function authorRegister() {
   const parsedAuthorId = parseAuthorId(xhsLink);
   const newUser = { username, password: pwd, xhsLink, games, authorId: parsedAuthorId, createdAt: now(), status: 'pending' };
   saveUser(newUser);
-  // 注册时立即同步到 D1，不等 debounce
-  clearTimeout(_syncDebounce['ecology_users_v1']);
-  _remoteSet('ecology_users_v1', { users: getUsers() });
+  // saveUsers 内已立即同步，无需重复操作
 
   // 清空表单
   ['ar-username','ar-password','ar-password2','ar-xhslink'].forEach(id => document.getElementById(id).value='');
