@@ -928,7 +928,11 @@ function opsTab(tab) {
   if (tab === 'notes') renderOpsNotes();
   if (tab === 'winners') renderOpsWinners();
   if (tab === 'objections') renderOpsObjections();
-  if (tab === 'creators') renderOpsCreators();
+  if (tab === 'creators') {
+    renderOpsCreators();
+    // 切换到创作者Tab时从 D1 刷新最新数据
+    syncFromRemote().then(() => renderOpsCreators()).catch(()=>{});
+  }
   if (tab === 'backup') updateDataSummary();
 }
 
@@ -1907,7 +1911,10 @@ function renderOpsCreators() {
   const rejected = filtered.filter(u => u.status === 'rejected');
 
   el.innerHTML = `
-    <div style="margin-bottom:16px;font-size:14px;font-weight:600;color:#333">🎮 燕云十六声 · 创作者管理（共 ${users.length} 人）</div>
+    <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:14px;font-weight:600;color:#333">🎮 燕云十六声 · 创作者管理（共 ${users.length} 人）</span>
+      <button class="btn btn-ghost btn-sm" onclick="syncFromRemote().then(()=>renderOpsCreators())" style="font-size:12px">🔄 刷新</button>
+    </div>
 
     ${pending.length ? `
     <div class="section" style="margin-bottom:14px">
