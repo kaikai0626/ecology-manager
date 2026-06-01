@@ -2257,7 +2257,7 @@ function openVendorEditDetail(actId) {
     </div>
     <div id="vd-upload-section" style="display:${mode==='upload'?'block':'none'}">
       <div class="form-group"><label>活动规则链接</label><input type="text" class="form-input" id="vd-upload-link" placeholder="https://..." value="${d.uploadLink||''}"></div>
-      <div class="form-group"><label>或粘贴文档内容</label><textarea class="form-textarea" id="vd-upload-doc" style="min-height:120px" placeholder="将活动规则文档内容粘贴在此处...">${d.uploadDoc||''}</textarea></div>
+      <div class="form-group"><label>补充说明</label><textarea class="form-textarea" id="vd-upload-doc" style="min-height:120px" placeholder="可在此补充活动相关说明...">${d.uploadDoc||''}</textarea></div>
     </div>
     <div id="vd-framework-section" style="display:${mode!=='upload'?'block':'none'}">
       <div class="form-group"><label>发布规则</label><textarea class="form-textarea" id="vd-rules">${d.publishRules||''}</textarea></div>
@@ -3074,8 +3074,7 @@ function renderAuthorObjection() {
     <div class="section">
       <div class="section-title">提交异议</div>
       <div class="alert" style="background:#fff7e6;border:1px solid #ffd666;color:#874d00;margin-bottom:12px">
-        ⚠️ <b>提交前必读：</b>作者ID 和 小红书号为必填项，请务必填写，否则运营无法处理您的异议。<br>
-        <span style="color:#f5222d">还需补充信息：请确保作者ID和小红书号填写正确，若填写错误则默认该异议不处理。</span>
+        ⚠️ <b>提交前必读：</b>作者ID 和 小红书号为必填项，请务必填写，否则运营无法处理您的异议。
       </div>
       ${!acts.length ? '<div style="color:#aaa;font-size:13px">暂无可提交异议的活动</div>' : `
         <div class="form-group"><label>选择活动 <span style="color:var(--red)">*</span></label>
