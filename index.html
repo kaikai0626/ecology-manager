@@ -703,8 +703,24 @@ async function syncFromRemote() {
     _remoteGet('ecology_data_v1'),
     _remoteGet('ecology_users_v1')
   ]);
+  // 活动数据：远端优先（运营是权威来源）
   if (remoteData) localStorage.setItem('ecology_data_v1', JSON.stringify(remoteData));
-  if (remoteUsers) localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
+  // 用户数据：合并，远端 + 本地，以远端状态为准，但不丢弃本地独有用户
+  if (remoteUsers) {
+    try {
+      const localRaw = localStorage.getItem('ecology_users_v1');
+      const localUsers = localRaw ? (JSON.parse(localRaw).users || {}) : {};
+      const merged = Object.assign({}, localUsers, remoteUsers.users || {});
+      localStorage.setItem('ecology_users_v1', JSON.stringify({ users: merged }));
+      // 把本地独有用户也推送到远端
+      const localOnly = Object.keys(localUsers).filter(k => !(remoteUsers.users || {})[k]);
+      if (localOnly.length > 0) {
+        _debouncedSync('ecology_users_v1', { users: merged }, 200);
+      }
+    } catch(e) {
+      localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
+    }
+  }
 }
 
 function getData() {
@@ -1986,6 +2002,9 @@ function reviewCreator(username, status) {
   user.status = status;
   user.reviewedAt = now();
   saveUser(user);
+  // 审批操作立即同步到 D1
+  clearTimeout(_syncDebounce['ecology_users_v1']);
+  _remoteSet('ecology_users_v1', { users: getUsers() });
   renderOpsCreators();
   toast(status === 'approved' ? `✅ 已通过 ${username} 的注册申请` : `已拒绝 ${username}`);
 }
@@ -2702,7 +2721,11 @@ function authorRegister() {
   if (users[username]) { errEl.textContent = '用户名已存在，请换一个'; errEl.style.display='block'; return; }
 
   const parsedAuthorId = parseAuthorId(xhsLink);
-  saveUser({ username, password: pwd, xhsLink, games, authorId: parsedAuthorId, createdAt: now(), status: 'pending' });
+  const newUser = { username, password: pwd, xhsLink, games, authorId: parsedAuthorId, createdAt: now(), status: 'pending' };
+  saveUser(newUser);
+  // 注册时立即同步到 D1，不等 debounce
+  clearTimeout(_syncDebounce['ecology_users_v1']);
+  _remoteSet('ecology_users_v1', { users: getUsers() });
 
   // 清空表单
   ['ar-username','ar-password','ar-password2','ar-xhslink'].forEach(id => document.getElementById(id).value='');
