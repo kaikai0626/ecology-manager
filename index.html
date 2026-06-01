@@ -2939,7 +2939,7 @@ function renderAuthorWhitelist() {
     el.innerHTML = '<div class="empty"><div class="empty-icon">⏳</div><div>白名单尚未公示</div></div>';
     return;
   }
-  el.innerHTML = acts.map((a,idx) => {
+  el.innerHTML = acts.map(a => {
     const wl = a.whitelist || [];
     const user = STATE.authorUser;
     const myEntry = wl.find(w => matchWL(w, user));
@@ -2950,33 +2950,27 @@ function renderAuthorWhitelist() {
         ? `<span style="font-size:12px;color:${open?'#389e0d':'#f5222d'}">${open?'⏰':'⌛'} 异议截止：${a.wlDeadline.replace('T',' ')}</span>`
         : '<span style="font-size:12px;color:#aaa">异议开放中</span>';
 
-    const previewCount = 5;
-    const hasMore = wl.length > previewCount;
-    const tableHtml = hasMore
-      ? `<div id="awl-table-${a.id}">${renderPublicWLTable(wl.slice(0, previewCount), user)}</div>
-         <div style="text-align:center;margin-top:8px">
-           <button class="btn btn-ghost btn-sm" id="awl-toggle-${a.id}" onclick="toggleAuthorWLExpand('${a.id}',${wl.length})">▼ 点击展开全部 ${wl.length} 人</button>
+    const statusBlock = myEntry
+      ? `<div style="display:flex;align-items:center;gap:10px;padding:16px 0;border-top:1px solid var(--border);margin-top:4px">
+           <span style="font-size:28px">✅</span>
+           <div><div style="font-weight:700;font-size:15px;color:#389e0d">您已在白名单中</div>
+           <div style="font-size:12px;color:var(--gray);margin-top:2px">如有疑问可在「提交异议」Tab 提交异议</div></div>
          </div>`
-      : `<div id="awl-table-${a.id}">${renderPublicWLTable(wl, user)}</div>`;
+      : `<div style="display:flex;align-items:center;gap:10px;padding:16px 0;border-top:1px solid var(--border);margin-top:4px">
+           <span style="font-size:28px">❌</span>
+           <div><div style="font-weight:700;font-size:15px;color:#f5222d">您不在白名单中</div>
+           <div style="font-size:12px;color:var(--gray);margin-top:2px">如有疑问可在「提交异议」Tab 提交异议</div></div>
+         </div>`;
 
-    const bodyId = 'authorwlb-'+a.id;
-    const isFirst = idx===0;
     return `
       <div class="section" style="margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="padding:14px 18px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
             <span class="activity-name">${a.name}</span>
-            ${myEntry ? '<span class="tag tag-approved" style="font-size:11px">✅ 已在名单</span>' : '<span class="tag tag-pending" style="font-size:11px">不在名单</span>'}
             ${deadlineLabel}
           </div>
-        </div>
-        <div id="${bodyId}" style="padding:0 18px 14px;">
-          <div class="search-bar" style="margin-bottom:8px">
-            <input class="search-input" placeholder="搜索作者ID/小红书号" oninput="filterAuthorWL(this.value,'awl-table-${a.id}','${a.id}')">
-          </div>
-          <div id="awl-${a.id}">${tableHtml}</div>
-          <div style="font-size:12px;color:var(--gray);margin-top:8px">共 ${wl.length} 人在白名单中</div>
-          ${!open ? `<div class="alert alert-warn" style="margin-top:12px">⌛ 异议提交已截止，无法再提交异议</div>` : ''}
+          ${statusBlock}
+          ${!open && !a.wlClosed ? `<div class="alert alert-warn" style="margin-top:8px">⌛ 异议提交已截止，无法再提交异议</div>` : ''}
         </div>
       </div>
     `;
