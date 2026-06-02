@@ -2907,12 +2907,16 @@ function switchAuthorIP(ip) {
 // ========== AUTHOR MAIN ==========
 let authorCurrentTab = 'status';
 function isAnyWLClosed() {
-  // 当前IP下是否有任一活动白名单已截止（公示结束）
-  return Object.values(getActivities()).some(a =>
-    a.ip === STATE.ip &&
-    ['whitelist_ready','active','collecting','vendor_review','winners_published','completed'].includes(a.status) &&
-    !isWLOpen(a)
-  );
+  // 当前IP下是否有任一活动：白名单已截止 AND 活动startTime已到
+  return Object.values(getActivities()).some(a => {
+    if (a.ip !== STATE.ip) return false;
+    if (!['whitelist_ready','active','collecting','vendor_review','winners_published','completed'].includes(a.status)) return false;
+    if (isWLOpen(a)) return false; // 白名单还未截止
+    // 判断活动开始时间
+    const startTime = a.detail && a.detail.startTime;
+    if (startTime && Date.now() < new Date(startTime).getTime()) return false; // 还未到开始时间
+    return true;
+  });
 }
 
 function updateAuthorRulesTabVisibility() {
