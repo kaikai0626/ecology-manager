@@ -1884,11 +1884,14 @@ function confirmOpsObjAction(actId, objId, type, action) {
   div.id = 'ops-reply-modal';
   div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
   div.innerHTML = `
-    <div style="background:#fff;border-radius:12px;padding:24px;width:380px;max-width:95%">
+    <div style="background:#fff;border-radius:12px;padding:24px;width:400px;max-width:95%">
       <div style="font-weight:700;font-size:16px;margin-bottom:12px">确认通过异议</div>
-      <div style="font-size:13px;color:var(--gray);margin-bottom:8px">作者ID：${obj.authorId||'-'}<br>小红书号：${obj.xhsId||'-'}</div>
-      <div style="font-size:13px;margin-bottom:16px">确认通过后，该作者将被加入白名单，作者端可自行查询结果。</div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
+      <div style="font-size:13px;color:var(--gray);margin-bottom:12px">作者ID：${obj.authorId||'-'} &nbsp;小红书号：${obj.xhsId||'-'}</div>
+      <div class="form-group">
+        <label style="font-size:13px">给作者的留言（作者可查看，不显示处理人身份）</label>
+        <textarea id="ops-approve-reply-text" class="form-textarea" style="min-height:72px;margin-top:6px" placeholder="可选，如：已核实，将为您安排~"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end">
         <button class="btn btn-ghost" onclick="document.getElementById('ops-reply-modal').remove()">取消</button>
         <button class="btn btn-primary" onclick="submitOpsObjReply('${actId}','${objId}','${type}','approve')">确认通过</button>
       </div>
@@ -1922,7 +1925,10 @@ function openOpsReplyObjection(actId, objId, type, action) {
 }
 
 function submitOpsObjReply(actId, objId, type, action) {
-  const reply = (document.getElementById('ops-reply-text')?.value||'').trim();
+  // 通过时读取可选留言框；拒绝/转厂商时读取必填框
+  const reply = action === 'approve'
+    ? (document.getElementById('ops-approve-reply-text')?.value||'').trim()
+    : (document.getElementById('ops-reply-text')?.value||'').trim();
   if (action === 'reject' && !reply) { toast('请填写拒绝理由'); return; }
   const act = getActivity(actId);
   const list = type === 'whitelist' ? act.whitelistObjections : act.winnerObjections;
