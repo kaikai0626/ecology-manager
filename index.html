@@ -1497,9 +1497,13 @@ function checkExpiredWLDeadlines() {
       act.timeline.push({ step: 'whitelist_published', completedAt: act.wlDeadline });
       dirty = true;
     }
-    if (!act.timeline.find(t => t.step === 'activity_started')) {
-      act.timeline.push({ step: 'activity_started', completedAt: act.wlDeadline });
-      dirty = true;
+    // activity_started 不随白名单截止自动推进，需等到活动 startDate 或运营手动确认
+    const startDate = act.detail && act.detail.startDate;
+    if (startDate && !act.timeline.find(t => t.step === 'activity_started')) {
+      if (Date.now() >= new Date(startDate).getTime()) {
+        act.timeline.push({ step: 'activity_started', completedAt: startDate });
+        dirty = true;
+      }
     }
     if (dirty) { syncActivityStatus(act); saveActivity(act); changed = true; }
   });
