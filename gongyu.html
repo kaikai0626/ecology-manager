@@ -32,7 +32,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .login-title{font-size:28px;font-weight:800;color:var(--red);margin-bottom:8px}
 .login-sub{color:var(--gray);margin-bottom:48px;font-size:15px}
 .role-cards{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
-.role-card{background:var(--white);border:2px solid var(--border);border-radius:16px;padding:32px 28px;width:220px;cursor:pointer;transition:all .2s;text-align:center}
+.role-card{background:var(--white);border:2px solid var(--border);border-radius:16px;padding:32px 28px;width:220px;cursor:pointer;transition:all .2s;text-align:center;-webkit-tap-highlight-color:rgba(0,0,0,.05);touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .role-card:hover{border-color:var(--red);box-shadow:0 8px 24px rgba(255,36,66,.15);transform:translateY(-2px)}
 .role-card.selected{border-color:var(--red);background:var(--red-light)}
 .role-icon{font-size:40px;margin-bottom:12px}
@@ -252,19 +252,19 @@ tr:hover td{background:#fafafa}
           <div class="role-icon">🛠️</div>
           <div class="role-name">运营</div>
           <div class="role-desc">活动全流程管理<br>白名单·笔记·获奖</div>
-          <div style="margin-top:16px;font-size:12px;color:var(--red);font-weight:600">进入 →</div>
+          <button style="margin-top:16px;font-size:12px;color:var(--red);font-weight:600;background:none;border:none;cursor:pointer;padding:0" onclick="event.stopPropagation();goLoginScreen('ops')">进入 →</button>
         </div>
         <div class="role-card" onclick="goLoginScreen('vendor')">
           <div class="role-icon">🏢</div>
           <div class="role-name">厂商</div>
           <div class="role-desc">填写活动细则<br>评审笔记·公示获奖</div>
-          <div style="margin-top:16px;font-size:12px;color:var(--red);font-weight:600">进入 →</div>
+          <button style="margin-top:16px;font-size:12px;color:var(--red);font-weight:600;background:none;border:none;cursor:pointer;padding:0" onclick="event.stopPropagation();goLoginScreen('vendor')">进入 →</button>
         </div>
         <div class="role-card" onclick="goLoginScreen('author')">
           <div class="role-icon">✍️</div>
           <div class="role-name">创作者</div>
           <div class="role-desc">查看白名单·活动规则<br>提交异议</div>
-          <div style="margin-top:16px;font-size:12px;color:var(--red);font-weight:600">进入 →</div>
+          <button style="margin-top:16px;font-size:12px;color:var(--red);font-weight:600;background:none;border:none;cursor:pointer;padding:0" onclick="event.stopPropagation();goLoginScreen('author')">进入 →</button>
         </div>
       </div>
     </div>
@@ -880,8 +880,17 @@ window.addEventListener('hashchange', function() {
         return;
       }
     } catch(e) {}
-    // No valid session for this hash → back to login
-    window.location.hash = 'login';
+    // No valid session for this hash → show that role's login screen directly
+    if (hash === 'author') {
+      showPage('author');
+    } else {
+      showPage('login');
+      goLoginScreen(hash);
+    }
+    return;
+  } else if (hash === 'login') {
+    // Already on login page, don't do anything disruptive
+    return;
   } else {
     showPage('login');
   }
