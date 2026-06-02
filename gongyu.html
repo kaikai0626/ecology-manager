@@ -2918,7 +2918,6 @@ function switchAuthorIP(ip) {
 }
 
 // ========== AUTHOR MAIN ==========
-let authorCurrentTab = 'status';
 function isAnyWLClosed() {
   // 当前IP下是否有任一活动白名单已截止（公示结束）
   return Object.values(getActivities()).some(a =>
@@ -2936,22 +2935,22 @@ function updateAuthorRulesTabVisibility() {
   const show = isAnyWLClosed();
   rulesTabEl.style.display = show ? '' : 'none';
   // if currently on rules tab but now hidden, switch to whitelist
-  if (!show && authorCurrentTab === 'rules') authorTab('whitelist');
+  if (!show && authorCurrentTab === 'rules') authorTabLegacy('whitelist');
 }
 
-function authorTab(tab) {
+function authorTabLegacy(tab) {
   authorCurrentTab = tab;
   document.querySelectorAll('#author-main .tab').forEach((t,i) => {
     t.classList.toggle('active', ['status','whitelist','rules','winners','objection'][i] === tab);
   });
   ['status','whitelist','rules','winners','objection'].forEach(t => {
-    document.getElementById('author-tab-'+t).style.display = t===tab ? 'block' : 'none';
+    const el = document.getElementById('author-tab-'+t); if (el) el.style.display = t===tab ? 'block' : 'none';
   });
-  if (tab === 'status') { renderAuthorStatus(); updateAuthorRulesTabVisibility(); }
-  if (tab === 'whitelist') { renderAuthorWhitelist(); updateAuthorRulesTabVisibility(); }
-  if (tab === 'rules') renderAuthorRules();
-  if (tab === 'winners') renderAuthorWinners();
-  if (tab === 'objection') renderAuthorObjection();
+  if (tab === 'status') { if(typeof renderAuthorStatus==='function') renderAuthorStatus(); }
+  if (tab === 'whitelist') { if(typeof renderAuthorWhitelist==='function') renderAuthorWhitelist(); }
+  if (tab === 'rules') { if(typeof renderAuthorRules==='function') renderAuthorRules(); }
+  if (tab === 'winners') { if(typeof renderAuthorWinners==='function') renderAuthorWinners(); }
+  if (tab === 'objection') { if(typeof renderAuthorObjection==='function') renderAuthorObjection(); }
 }
 
 function getAuthorMatchKey() {
