@@ -400,7 +400,7 @@ tr:hover td{background:#fafafa}
     <div class="tabs" id="author-tabs">
       <div class="tab active" onclick="authorTab('whitelist')">📋 白名单公示</div>
       <div class="tab" onclick="authorTab('winners')">🏆 获奖公示</div>
-      <div class="tab" onclick="authorTab('objection')">💬 提交异议</div>
+      <div class="tab" onclick="authorTab('objection')">💬 提交&amp;查看异议</div>
     </div>
 
     <!-- Tab: 白名单公示 -->
@@ -433,8 +433,11 @@ tr:hover td{background:#fafafa}
       </div>
     </div>
 
-    <!-- Tab: 提交异议 -->
+    <!-- Tab: 提交&查看异议 -->
     <div id="author-tab-objection" style="display:none;max-width:680px;margin:0 auto">
+      <!-- 查看异议回复版块 -->
+      <div id="author-obj-status-wrap"></div>
+      <!-- 提交异议表单版块 -->
       <div id="author-objection-form-wrap"></div>
     </div>
   </div>
@@ -3085,12 +3088,12 @@ function renderAuthorWhitelist() {
       ? `<div style="display:flex;align-items:center;gap:10px;padding:16px 0;border-top:1px solid var(--border);margin-top:4px">
            <span style="font-size:28px">✅</span>
            <div><div style="font-weight:700;font-size:15px;color:#389e0d">您已在白名单中</div>
-           <div style="font-size:12px;color:var(--gray);margin-top:2px">如有疑问可在「提交异议」Tab 提交异议</div></div>
+           <div style="font-size:12px;color:var(--gray);margin-top:2px">如有疑问可在「提交&查看异议」Tab 提交异议</div></div>
          </div>`
       : `<div style="display:flex;align-items:center;gap:10px;padding:16px 0;border-top:1px solid var(--border);margin-top:4px">
            <span style="font-size:28px">❌</span>
            <div><div style="font-weight:700;font-size:15px;color:#f5222d">您不在白名单中</div>
-           <div style="font-size:12px;color:var(--gray);margin-top:2px">如有疑问可在「提交异议」Tab 提交异议</div></div>
+           <div style="font-size:12px;color:var(--gray);margin-top:2px">如有疑问可在「提交&查看异议」Tab 提交异议</div></div>
          </div>`;
 
     return `
@@ -3462,7 +3465,7 @@ function authorTab(tab) {
     if (tabEl) tabEl.classList.toggle('active', t === tab);
     if (panelEl) panelEl.style.display = t === tab ? 'block' : 'none';
   });
-  if (tab === 'objection') renderAuthorObjectionForm();
+  if (tab === 'objection') { renderAuthorObjStatus(); renderAuthorObjectionForm(); }
 }
 
 // ---- Tab1: 白名单查询 ----
@@ -3568,7 +3571,107 @@ function doAuthorWinnerQuery() {
   });
 }
 
-// ---- Tab3: 提交异议 ----
+// ---- Tab3: 提交&查看异议 ----
+
+// 查看异议回复版块
+function renderAuthorObjStatus() {
+  const el = document.getElementById('author-obj-status-wrap');
+  if (!el) return;
+  const statusLabel = { pending:'待处理', approved:'已通过', rejected:'已拒绝', vendor_pending:'处理中' };
+  const statusColor = { pending:'#fa8c16', approved:'#389e0d', rejected:'#f5222d', vendor_pending:'#d46b08' };
+
+  el.innerHTML = `
+    <div class="section" style="margin-bottom:16px">
+      <div class="section-title">🔎 查看异议回复</div>
+      <div style="font-size:13px;color:var(--gray);margin-bottom:12px">输入您的作者ID，查看已提交的异议及处理结果</div>
+      <div class="search-bar">
+        <input type="text" class="search-input" id="obj-status-query-input"
+          placeholder="请输入您的24位作者ID"
+          onkeydown="if(event.key==='Enter')doAuthorObjStatusQuery()">
+        <button class="btn btn-primary" onclick="doAuthorObjStatusQuery()" style="white-space:nowrap">查询</button>
+      </div>
+      <div id="author-obj-status-result" style="margin-top:12px"></div>
+    </div>`;
+}
+
+function doAuthorObjStatusQuery() {
+  const q = (document.getElementById('obj-status-query-input')?.value||'').trim();
+  const el = document.getElementById('author-obj-status-result');
+  if (!q) { el.innerHTML = '<div style="color:#f5222d;font-size:13px">请输入作者ID</div>'; return; }
+
+  const statusLabel = { pending:'待处理', approved:'已通过', rejected:'已拒绝', vendor_pending:'处理中' };
+  const statusColor = { pending:'#fa8c16', approved:'#389e0d', rejected:'#f5222d', vendor_pending:'#d46b08' };
+
+  // 遍历所有光遇活动的异议
+  const acts = Object.values(getActivities()).filter(a => a.ip === 'sky');
+  const found = [];
+
+  acts.forEach(act => {
+    (act.whitelistObjections||[]).forEach(o => {
+      if (o.authorId === q) found.push({...o, actName: act.name, objType: 'whitelist'});
+    });
+    (act.winnerObjections||[]).forEach(o => {
+      if (o.authorId === q) found.push({...o, actName: act.name, objType: 'winner'});
+    });
+  });
+
+  if (!found.length) {
+    el.innerHTML = '<div class="alert alert-info">未找到该作者ID提交的异议记录，请确认ID填写正确</div>';
+    return;
+  }
+
+  // 按时间倒序排序
+  found.sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
+
+  el.innerHTML = found.map(o => {
+    const typeLabel = o.objType === 'whitelist' ? '白名单异议' : '获奖异议';
+    const st = o.status || 'pending';
+    const stLabel = statusLabel[st] || st;
+    const stColor = statusColor[st] || '#999';
+
+    // 回复内容：通过/拒绝才显示，不透露是谁处理的
+    let replyHtml = '';
+    if (st === 'approved') {
+      replyHtml = `<div style="margin-top:8px;padding:10px 12px;background:#f6ffed;border:1px solid #b7eb8f;border-radius:6px;font-size:13px">
+        <span style="color:#389e0d;font-weight:600">✅ 异议已通过</span>
+        <div style="color:#555;margin-top:4px">您的异议已通过审核，请前往白名单/获奖公示页查询最新结果。</div>
+      </div>`;
+    } else if (st === 'rejected') {
+      const reasonText = o.rejectReason ? `拒绝理由：${o.rejectReason}` : '异议未通过审核，请确认拒交信息是否正确';
+      replyHtml = `<div style="margin-top:8px;padding:10px 12px;background:#fff1f0;border:1px solid #ffa39e;border-radius:6px;font-size:13px">
+        <span style="color:#f5222d;font-weight:600">❌ 异议未通过</span>
+        <div style="color:#555;margin-top:4px">${reasonText}</div>
+      </div>`;
+    } else if (st === 'vendor_pending') {
+      const vReply = o.vendorReply;
+      if (vReply) {
+        replyHtml = `<div style="margin-top:8px;padding:10px 12px;background:#fff7e6;border:1px solid #ffd591;border-radius:6px;font-size:13px">
+          <span style="color:#d46b08;font-weight:600">💬 已收到回复</span>
+          <div style="color:#555;margin-top:4px">${vReply}</div>
+        </div>`;
+      } else {
+        replyHtml = `<div style="margin-top:8px;padding:8px 12px;background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;font-size:12px;color:#ad6800">正在进一步确认中，请耐心等待</div>`;
+      }
+    } else {
+      replyHtml = `<div style="margin-top:8px;padding:8px 12px;background:#fafafa;border:1px solid var(--border);border-radius:6px;font-size:12px;color:#999">待运营处理，一般 1-3 个工作日内回复</div>`;
+    }
+
+    return `
+      <div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12px;font-weight:600;background:#f0f0f0;padding:2px 8px;border-radius:4px">${typeLabel}</span>
+            <span style="font-size:12px;color:var(--gray)">${o.actName}</span>
+          </div>
+          <span style="font-size:12px;font-weight:600;color:${stColor}">${stLabel}</span>
+        </div>
+        <div style="font-size:13px;color:#555;margin-bottom:4px">异议原因：${o.reason||'-'}</div>
+        <div style="font-size:12px;color:#aaa">提交时间：${fmtDate(o.createdAt)}</div>
+        ${replyHtml}
+      </div>`;
+  }).join('');
+}
+
 function renderAuthorObjectionForm() {
   const el = document.getElementById('author-objection-form-wrap');
   const acts = Object.values(getActivities()).filter(a => a.ip === 'sky');
