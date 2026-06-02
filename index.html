@@ -346,7 +346,8 @@ tr:hover td{background:#fafafa}
         <div class="section-title">数据备份与恢复</div>
         <div class="alert alert-info">💡 建议定期导出备份，避免浏览器清缓存导致数据丢失</div>
         <div class="btn-group">
-          <button class="btn btn-primary" onclick="exportData()">📥 导出备份 JSON</button>
+          <button class="btn btn-primary" onclick="exportCreatorsCSV()">📥 导出创作者 CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportData()" style="margin-left:8px;font-size:12px">导出全量备份JSON</button>
           <button class="btn btn-outline" onclick="document.getElementById('import-file').click()">📤 导入备份</button>
           <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
         </div>
@@ -1937,16 +1938,19 @@ function renderOpsCreators() {
   const rejected = filtered.filter(u => u.status === 'rejected');
 
   el.innerHTML = `
-    <div style="margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <span style="font-size:14px;font-weight:600;color:#333">🎮 燕云十六声 · 创作者管理（共 ${users.length} 人）</span>
       <button class="btn btn-ghost btn-sm" onclick="syncFromRemote().then(()=>renderOpsCreators())" style="font-size:12px">🔄 刷新</button>
+    </div>
+    <div class="search-bar" style="margin-bottom:12px">
+      <input class="search-input" id="creators-search" placeholder="搜索用户名 / 作者ID / 小红书号" oninput="filterCreatorsSearch(this.value)">
     </div>
 
     ${pending.length ? `
     <div class="section" style="margin-bottom:14px">
       <div class="section-title"><span class="pending-dot"></span>待审核（${pending.length}）</div>
       <div style="font-size:11px;color:var(--gray);padding:6px 14px;background:#fafafa;border-bottom:1px solid #f5f5f5;display:flex;gap:12px">
-        <span style="min-width:100px">用户名</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span>
+        <span style="min-width:100px">用户名</span><span style="width:80px">密码</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span>
       </div>
       ${pending.map(u => renderCreatorCard(u)).join('')}
     </div>` : ''}
@@ -1955,7 +1959,7 @@ function renderOpsCreators() {
       <div class="section-title">已通过（${approved.length}）</div>
       ${approved.length ? `
       <div style="font-size:11px;color:var(--gray);padding:6px 14px;background:#fafafa;border-bottom:1px solid #f5f5f5;display:flex;gap:12px">
-        <span style="min-width:100px">用户名</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span>
+        <span style="min-width:100px">用户名</span><span style="width:80px">密码</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span>
       </div>
       ${approved.map(u => renderCreatorCard(u)).join('')}` : '<div style="color:#aaa;font-size:13px;padding:12px 14px">暂无</div>'}
     </div>
@@ -1964,7 +1968,7 @@ function renderOpsCreators() {
     <div class="section" style="margin-bottom:14px">
       <div class="section-title">已拒绝（${rejected.length}）</div>
       <div style="font-size:11px;color:var(--gray);padding:6px 14px;background:#fafafa;border-bottom:1px solid #f5f5f5;display:flex;gap:12px">
-        <span style="min-width:100px">用户名</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span><span style="margin-left:auto">操作</span>
+        <span style="min-width:100px">用户名</span><span style="width:80px">密码</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span><span style="margin-left:auto">操作</span>
       </div>
       ${rejected.map(u => renderCreatorCard(u)).join('')}
     </div>` : ''}
@@ -1989,10 +1993,12 @@ function renderCreatorCard(u) {
   const authorId = u.authorId || parseAuthorId(u.xhsLink) || '-';
   if (!u.authorId && authorId !== '-') { u.authorId = authorId; saveUser(u); }
   return `
-    <div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap">
+    <div data-creator-row="${u.username} ${u.authorId||''} ${u.xhsLink||''}" style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap">
       <span style="font-weight:600;min-width:100px;font-size:13px">${u.username}</span>
+      <span style="font-size:11px;color:#888;width:80px;font-family:monospace">${u.password||'-'}</span>
       <span class="tag ${statusClass[u.status]||'tag-pending'}" style="font-size:11px">${statusMap[u.status]||u.status}</span>
-      <span style="font-size:12px;color:var(--gray);min-width:120px">ID: ${authorId}</span>
+      <span style="font-size:12px;color:var(--gray);min-width:120px" id="creator-id-${u.username}">ID: ${authorId}</span>
+      <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="editCreatorId('${u.username}')">编辑ID</button>
       ${u.xhsLink ? `<a href="${u.xhsLink}" target="_blank" style="font-size:12px;color:var(--red)">主页↗</a>` : ''}
       ${u.xhsScreenshot ? `<img src="${u.xhsScreenshot}" onclick="viewScreenshot('${u.username}')" title="点击查看截图" style="height:28px;border-radius:4px;border:1px solid var(--border);cursor:pointer">` : ''}
       <span style="font-size:11px;color:#bbb;margin-left:auto">${fmtDate(u.createdAt)}</span>
@@ -2038,6 +2044,55 @@ function viewScreenshot(username) {
   mask.innerHTML = `<img src="${user.xhsScreenshot}" style="max-width:90vw;max-height:90vh;border-radius:8px">`;
   mask.onclick = () => document.body.removeChild(mask);
   document.body.appendChild(mask);
+}
+
+function exportCreatorsCSV() {
+  const users = Object.values(getUsers());
+  const rows = [['用户名','密码','作者ID','小红书主页','状态','注册时间','审批时间']];
+  users.forEach(u => {
+    const statusMap = { pending:'待审核', approved:'已通过', rejected:'已拒绝' };
+    rows.push([
+      u.username || '',
+      u.password || '',
+      u.authorId || '',
+      u.xhsLink || '',
+      statusMap[u.status] || u.status || '',
+      u.createdAt ? fmtDate(u.createdAt) : '',
+      u.reviewedAt ? fmtDate(u.reviewedAt) : ''
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  // 加BOM让Excel正确识别中文
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `creators-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('创作者列表已导出 CSV');
+}
+
+function filterCreatorsSearch(kw) {
+  const q = kw.trim().toLowerCase();
+  document.querySelectorAll('#ops-creators-content [data-creator-row]').forEach(row => {
+    const text = row.dataset.creatorRow.toLowerCase();
+    row.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+}
+
+function editCreatorId(username) {
+  const user = getUser(username);
+  if (!user) return;
+  const newId = prompt(`修改「${username}」的作者ID：`, user.authorId || '');
+  if (newId === null) return;
+  const trimmed = newId.trim();
+  if (trimmed && !/^[A-Za-z0-9]{24}$/.test(trimmed)) {
+    toast('作者ID格式不对（需24位字母数字）', 'error'); return;
+  }
+  user.authorId = trimmed;
+  saveUser(user);
+  const el = document.getElementById('creator-id-'+username);
+  if (el) el.textContent = 'ID: ' + (trimmed || '-');
+  toast('✅ 作者ID已更新');
 }
 
 function exportData() {
