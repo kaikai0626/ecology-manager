@@ -2875,130 +2875,6 @@ function vendorReplyObjection(actId, objId) {
   toast('✅ 已回复作者');
 }
 
-// ========== AUTHOR AUTH ==========
-function showAuthorRegister() {
-  document.getElementById('author-login-form').style.display = 'none';
-  document.getElementById('author-register-form').style.display = 'block';
-}
-function showAuthorLogin() {
-  document.getElementById('author-register-form').style.display = 'none';
-  document.getElementById('author-login-form').style.display = 'block';
-}
-
-function previewScreenshot(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    STATE.pendingScreenshot = ev.target.result;
-    document.getElementById('ar-screenshot-img').src = ev.target.result;
-    document.getElementById('ar-screenshot-preview').style.display = 'block';
-    document.getElementById('ar-screenshot-area').style.borderColor = 'var(--red)';
-  };
-  reader.readAsDataURL(file);
-}
-
-function authorRegister() {
-  const errEl = document.getElementById('ar-err');
-  errEl.style.display = 'none';
-  const username = document.getElementById('ar-username').value.trim();
-  const pwd = document.getElementById('ar-password').value;
-  const pwd2 = document.getElementById('ar-password2').value;
-  const xhsLink = document.getElementById('ar-xhslink').value.trim();
-  const screenshot = STATE.pendingScreenshot || '';
-  const games = ['yy'];
-
-  if (!username) { errEl.textContent = '请填写用户名'; errEl.style.display='block'; return; }
-  if (!pwd || pwd.length < 6) { errEl.textContent = '密码至少6位'; errEl.style.display='block'; return; }
-  if (pwd !== pwd2) { errEl.textContent = '两次密码不一致'; errEl.style.display='block'; return; }
-  if (!xhsLink) { errEl.textContent = '请填写小红书主页链接'; errEl.style.display='block'; return; }
-  const users = getUsers();
-  if (users[username]) { errEl.textContent = '用户名已存在，请换一个'; errEl.style.display='block'; return; }
-
-  const parsedAuthorId = parseAuthorId(xhsLink);
-  const newUser = { username, password: pwd, xhsLink, games, authorId: parsedAuthorId, createdAt: now(), status: 'pending' };
-  saveUser(newUser);
-  // saveUsers 内已立即同步，无需重复操作
-
-  // 清空表单
-  ['ar-username','ar-password','ar-password2','ar-xhslink'].forEach(id => document.getElementById(id).value='');
-
-  showAuthorLogin();
-  // 在登录框上方展示成功提示
-  const loginForm = document.getElementById('author-login-form');
-  const msg = document.createElement('div');
-  msg.className = 'alert alert-success';
-  msg.style.marginBottom = '16px';
-  msg.textContent = '✅ 注册申请已提交！请等待运营审核，审核通过后即可登录。';
-  loginForm.prepend(msg);
-  setTimeout(() => msg.remove(), 6000);
-}
-
-function authorLogin() {
-  const errEl = document.getElementById('al-err');
-  errEl.style.display = 'none';
-  const username = document.getElementById('al-username').value.trim();
-  const pwd = document.getElementById('al-password').value;
-  if (!username || !pwd) { errEl.textContent = '请输入用户名和密码'; errEl.style.display='block'; return; }
-
-  const user = getUser(username);
-  if (!user) { errEl.textContent = '用户名不存在'; errEl.style.display='block'; return; }
-  if (user.password !== pwd) { errEl.textContent = '密码错误'; errEl.style.display='block'; return; }
-  if (user.status === 'pending') { errEl.textContent = '您的注册申请正在审核中，请耐心等待运营确认'; errEl.style.display='block'; return; }
-  if (user.status === 'rejected') { errEl.textContent = '您的注册申请未通过，请联系运营'; errEl.style.display='block'; return; }
-
-  // 登录成功
-  STATE.authorUser = user;
-  // 登录时把本地用户数据推到D1（兜底：确保旧版本注册的用户也能同步）
-  _remoteSet('ecology_users_sky_v1', { users: getUsers() });
-  // 从用户参与游戏中确定当前IP（如果已选了IP就用已选的，否则取第一个）
-  if (!STATE.ip && user.games && user.games.length) {
-    STATE.ip = user.games[0];
-    const _ait2 = document.getElementById('author-ip-tag'); if (_ait2) _ait2.textContent = IP_NAMES[STATE.ip];
-  }
-
-  document.getElementById('author-auth-wrap').style.display = 'none';
-  document.getElementById('author-main').style.display = 'block';
-  (document.getElementById('author-nav-name') || {}).textContent = username;
-  (document.getElementById('author-nav-name') || {}).style.display = 'inline';
-
-  // 如果用户参与了多个游戏，显示游戏切换
-  if (user.games && user.games.length > 1) {
-    renderAuthorIPSwitcher();
-  }
-  renderAuthorStatus();
-  updateAuthorRulesTabVisibility();
-}
-
-function renderAuthorIPSwitcher() {
-  const user = STATE.authorUser;
-  if (!user || !user.games || user.games.length <= 1) return;
-  const existing = document.getElementById('author-ip-switcher');
-  if (existing) return;
-  const switcher = document.createElement('div');
-  switcher.id = 'author-ip-switcher';
-  switcher.style.cssText = 'background:var(--white);padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px';
-  switcher.innerHTML = `<span style="font-size:13px;color:var(--gray)">切换游戏：</span>` +
-    user.games.map(g => `<button class="ip-filter-btn ${STATE.ip===g?'active':''}" id="author-ip-btn-${g}" onclick="switchAuthorIP('${g}')">${IP_NAMES[g]}</button>`).join('');
-  document.getElementById('author-main').prepend(switcher);
-}
-
-function switchAuthorIP(ip) {
-  STATE.ip = ip;
-  const _ait3 = document.getElementById('author-ip-tag'); if (_ait3) _ait3.textContent = IP_NAMES[ip];
-  document.querySelectorAll('[id^="author-ip-btn-"]').forEach(b => b.classList.remove('active'));
-  const btn = document.getElementById('author-ip-btn-'+ip);
-  if (btn) btn.classList.add('active');
-  // re-render current tab
-  const tab = document.querySelector('#author-main .tab.active');
-  if (tab) {
-    const tabName = tab.textContent.trim();
-    const map = {'我的状态':'status','白名单公示':'whitelist','活动规则':'rules','提交异议':'objection'};
-    const key = map[tabName];
-    if (key) { if(key==='status') renderAuthorStatus(); if(key==='whitelist') renderAuthorWhitelist(); if(key==='rules') renderAuthorRules(); if(key==='objection') renderAuthorObjection(); }
-  }
-}
-
 // ========== AUTHOR MAIN ==========
 function isAnyWLClosed() {
   // 当前IP下是否有任一活动白名单已截止（公示结束）
@@ -3684,9 +3560,10 @@ function doAuthorObjStatusQuery() {
     // 回复内容：通过/拒绝才显示，不透露是谁处理的
     let replyHtml = '';
     if (st === 'approved') {
+      const replyText = o.reply || o.vendorReply || '';
       replyHtml = `<div style="margin-top:8px;padding:10px 12px;background:#f6ffed;border:1px solid #b7eb8f;border-radius:6px;font-size:13px">
         <span style="color:#389e0d;font-weight:600">✅ 异议已通过</span>
-        <div style="color:#555;margin-top:4px">您的异议已通过审核，请前往白名单/获奖公示页查询最新结果。</div>
+        ${replyText ? `<div style="color:#555;margin-top:4px">${replyText}</div>` : '<div style="color:#555;margin-top:4px">您的异议已通过审核，请前往白名单/获奖公示页查询最新结果。</div>'}
       </div>`;
     } else if (st === 'rejected') {
       const reasonText = o.rejectReason ? `拒绝理由：${o.rejectReason}` : '异议未通过审核，请确认拒交信息是否正确';
