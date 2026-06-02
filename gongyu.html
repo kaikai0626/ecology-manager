@@ -832,8 +832,10 @@ function enterPage(role) {
     role, ip: STATE.ip,
     authorUser: STATE.authorUser ? STATE.authorUser.username : null
   }));
-  // Navigate to hash — triggers hashchange which calls showPage
-  window.location.hash = role;
+  // 直接显示页面，不依赖 hashchange（避免竞争条件）
+  showPage(role);
+  // 同步更新 hash，不触发弹窗（使用 history.replaceState 避免 hashchange 事件）
+  try { history.replaceState(null, '', '#' + role); } catch(e) {}
 }
 
 function showPage(role) {
