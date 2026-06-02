@@ -638,6 +638,20 @@ const TIMELINE_STEPS = [
   { key: 'completed', label: '活动完成' }
 ];
 
+// 当某步骤完成时，自动补全所有前置步骤（保证流程线不出现跳过）
+function ensureTimelinePrereqs(act, targetStepKey) {
+  if (!act.timeline) act.timeline = [];
+  const idx = TIMELINE_STEPS.findIndex(s => s.key === targetStepKey);
+  if (idx <= 0) return;
+  const t0 = new Date().toISOString();
+  for (let i = 0; i < idx; i++) {
+    const key = TIMELINE_STEPS[i].key;
+    if (!act.timeline.find(t => t.step === key)) {
+      act.timeline.push({ step: key, completedAt: t0 });
+    }
+  }
+}
+
 // ========== DATA ==========
 const API_BASE = '/api/db';
 const _syncDebounce = {};
@@ -1035,17 +1049,38 @@ function renderDetailBody(act) {
       repaired = true;
     }
   }
-  // If notes confirmed, notes_collected must be done
-  if (act.notesConfirmed) ensureStep('notes_collected');
-  // If winners published (approvedAt set), vendor_reviewed and winners_announced must be done
-  if (act.winnersPublish && act.winnersPublish.approvedAt) {
-    ensureStep('vendor_reviewed');
-    ensureStep('winners_announced');
+  // 前置补全规则：完成后面步骤时，前面的必须也标为已完成
+  const hasWLPublished = !!(act.timeline||[]).find(t => t.step === 'whitelist_published');
+  const hasNotesDone   = !!(act.timeline||[]).find(t => t.step === 'notes_collected') || act.notesConfirmed;
+  const hasWinners     = !!(act.winnersPublish && act.winnersPublish.approvedAt);
+
+  // 白名单已公布 → 厂商已提交细则 + 运营已确认细则 必须同时完成
+  if (hasWLPublished) {
+    ensureStep('vendor_detail_submitted');
+    ensureStep('detail_confirmed');
   }
-  // If whitelist closed/published and whitelist_published not in timeline, add it
-  if ((act.wlClosed || (act.whitelist && act.whitelist.length > 0 && act.wlDeadline)) &&
+  // 白名单公示的条件自动补入
+  if ((act.wlClosed || (act.whitelist && act.whitelist.length > 0)) &&
       !act.timeline.find(t => t.step === 'whitelist_published')) {
     ensureStep('whitelist_published');
+  }
+  // 合规笔记已确认 → notes_collected、activity_started 前置补全
+  if (hasNotesDone) {
+    ensureStep('vendor_detail_submitted');
+    ensureStep('detail_confirmed');
+    ensureStep('whitelist_published');
+    ensureStep('activity_started');
+    ensureStep('notes_collected');
+  }
+  // 获奖公示已发布 → 前面所有步骤必须完成
+  if (hasWinners) {
+    ensureStep('vendor_detail_submitted');
+    ensureStep('detail_confirmed');
+    ensureStep('whitelist_published');
+    ensureStep('activity_started');
+    ensureStep('notes_collected');
+    ensureStep('vendor_reviewed');
+    ensureStep('winners_announced');
   }
   if (repaired) { syncActivityStatus(act); saveActivity(act); }
 
@@ -1253,6 +1288,8 @@ function advanceStep(step) {
     }
   }
   if (!act.timeline) act.timeline = [];
+  // 自动补全前置步骤，保证流程线不跳过
+  ensureTimelinePrereqs(act, step);
   if (!act.timeline.find(t => t.step === step)) {
     act.timeline.push({ step, completedAt: now() });
   }
@@ -1413,8 +1450,9 @@ function confirmWhitelist() {
       if (!dup) { act.whitelist.push(entry); added++; }
     });
   }
-  // Mark whitelist_published in timeline
+  // Mark whitelist_published in timeline（并自动补全前置步骤）
   if (!act.timeline) act.timeline = [];
+  ensureTimelinePrereqs(act, 'whitelist_published');
   if (!act.timeline.find(t => t.step === 'whitelist_published')) {
     act.timeline.push({ step: 'whitelist_published', completedAt: now() });
   }
@@ -1466,6 +1504,7 @@ function checkExpiredWLDeadlines() {
     if (!act.timeline) act.timeline = [];
     let dirty = false;
     if (!act.timeline.find(t => t.step === 'whitelist_published')) {
+      ensureTimelinePrereqs(act, 'whitelist_published');
       act.timeline.push({ step: 'whitelist_published', completedAt: act.wlDeadline });
       dirty = true;
     }
@@ -1571,9 +1610,10 @@ function closeWLNow(actId) {
   if (!confirm('确认立即结束白名单公示？结束后作者将无法再提交异议。')) return;
   const act = getActivity(actId);
   act.wlClosed = true;
-  // Advance timeline to activity_started
+  // Advance timeline to activity_started（并自动补全前置步骤）
   if (!act.timeline) act.timeline = [];
   if (!act.timeline.find(t => t.step === 'whitelist_published')) {
+    ensureTimelinePrereqs(act, 'whitelist_published');
     act.timeline.push({ step: 'whitelist_published', completedAt: now() });
   }
   if (!act.timeline.find(t => t.step === 'activity_started')) {
