@@ -569,7 +569,7 @@ tr:hover td{background:#fafafa}
       <textarea class="form-textarea" id="winners-note" placeholder="如奖励发放时间、兑换方式等..." style="min-height:72px"></textarea>
     </div>
     <div class="form-group">
-      <label>获奖名单（CSV文件，表头：作者ID、作者小红书号）</label>
+      <label>获奖名单（CSV文件，表头：作者ID、作者小红书号）<span style="color:var(--red)"> *必填</span></label>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn btn-outline btn-sm" onclick="document.getElementById('winners-list-file').click()">📤 上传获奖名单</button>
         <button class="btn btn-ghost btn-sm" onclick="downloadWinnersTemplate()">📥 下载CSV示例</button>
@@ -725,6 +725,11 @@ function saveActivity(act) {
   act.updatedAt = new Date().toISOString();
   data.activities[act.id] = act;
   saveData(data);
+  // 实时更新运营端活动总控台列表（流程线）
+  if (typeof opsCurrentTab !== 'undefined' && opsCurrentTab === 'activities' && typeof renderOpsActivities === 'function') {
+    renderOpsActivities();
+    if (typeof updateDataSummary === 'function') updateDataSummary();
+  }
 }
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function now() { return new Date().toISOString(); }
@@ -1797,15 +1802,15 @@ function renderObjectionTable(list, showActions) {
         <div><b>作者ID：</b>${o.authorId||'-'} &nbsp;<b>小红书号：</b>${o.xhsId||'-'}</div>
         <div><b>异议原因：</b>${o.reason||'-'}</div>
         ${o.status==='rejected' ? `<div style="color:#f5222d"><b>拒绝理由：</b>${o.rejectReason||'-'}</div>` : ''}
-        ${o.status==='approved' && o.reply ? `<div style="color:#389e0d"><b>回复作者：</b>${o.reply}</div>` : ''}
+        ${o.status==='approved' ? `<div style="color:#389e0d">✅ 已通过${o.handledAt?' · '+fmtDate(o.handledAt):''}</div>` : ''}
         ${o.status==='vendor_pending' ? `<div style="color:#fa8c16"><b>状态：</b>已转给厂商处理${o.vendorReply?'，厂商回复：'+o.vendorReply:''}</div>` : ''}
       </div>
       ${(showActions && o.status === 'pending') ? `
         <div style="margin-top:10px">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" onclick="openOpsReplyObjection('${o.actId}','${o.id}','${o.type}','approve')">✅ 通过并回复作者</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmOpsObjAction('${o.actId}','${o.id}','${o.type}','approve')">✅ 通过</button>
             <button class="btn btn-sm" style="background:#fff7e6;color:#d46b08;border:1px solid #ffd591" onclick="openOpsReplyObjection('${o.actId}','${o.id}','${o.type}','vendor')">🔀 转给厂商处理</button>
-            <button class="btn btn-sm" style="background:#fff1f0;color:#f5222d;border:1px solid #ffa39e" onclick="openOpsReplyObjection('${o.actId}','${o.id}','${o.type}','reject')">拒绝并回复</button>
+            <button class="btn btn-sm" style="background:#fff1f0;color:#f5222d;border:1px solid #ffa39e" onclick="openOpsReplyObjection('${o.actId}','${o.id}','${o.type}','reject')">拒绝</button>
           </div>
         </div>
       ` : (o.handledAt ? `<div style="font-size:12px;color:var(--gray);margin-top:6px">处理时间：${fmtDate(o.handledAt)}</div>` : '')}
@@ -1813,22 +1818,44 @@ function renderObjectionTable(list, showActions) {
   `).join('');
 }
 
-// Modal for ops reply
+// 白名单异议「通过」—— 二次确认，无需填回复
+function confirmOpsObjAction(actId, objId, type, action) {
+  const act = getActivity(actId);
+  const list = type === 'whitelist' ? act.whitelistObjections : act.winnerObjections;
+  const obj = list.find(o => o.id === objId);
+  if (!obj) return;
+  // 通过：弹二次确认，不需要回复文本（作者端可自查结果）
+  const div = document.createElement('div');
+  div.id = 'ops-reply-modal';
+  div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+  div.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:24px;width:380px;max-width:95%">
+      <div style="font-weight:700;font-size:16px;margin-bottom:12px">确认通过异议</div>
+      <div style="font-size:13px;color:var(--gray);margin-bottom:8px">作者ID：${obj.authorId||'-'}<br>小红书号：${obj.xhsId||'-'}</div>
+      <div style="font-size:13px;margin-bottom:16px">确认通过后，该作者将被加入白名单，作者端可自行查询结果。</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="document.getElementById('ops-reply-modal').remove()">取消</button>
+        <button class="btn btn-primary" onclick="submitOpsObjReply('${actId}','${objId}','${type}','approve')">确认通过</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+// Modal for ops reply（转厂商/拒绝 仍需填写原因）
 function openOpsReplyObjection(actId, objId, type, action) {
   const act = getActivity(actId);
   const list = type === 'whitelist' ? act.whitelistObjections : act.winnerObjections;
   const obj = list.find(o => o.id === objId);
   if (!obj) return;
-  const labelMap = { approve:'通过并回复作者', vendor:'转给厂商处理', reject:'拒绝并回复作者' };
-  const placeholder = action === 'vendor' ? '转给厂商的备注（可选）' : '请填写回复内容（将展示给作者）';
-  const required = action !== 'vendor';
+  const labelMap = { vendor:'转给厂商处理', reject:'拒绝异议' };
+  const placeholder = action === 'vendor' ? '转给厂商的备注（可选）' : '请填写拒绝理由（将记录存档）';
 
   const div = document.createElement('div');
   div.id = 'ops-reply-modal';
   div.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center';
   div.innerHTML = `
     <div style="background:#fff;border-radius:12px;padding:24px;width:420px;max-width:95%">
-      <div style="font-weight:700;font-size:16px;margin-bottom:12px">${labelMap[action]}</div>
+      <div style="font-weight:700;font-size:16px;margin-bottom:12px">${labelMap[action]||action}</div>
       <div style="font-size:13px;color:var(--gray);margin-bottom:12px">作者ID：${obj.authorId||'-'} · 小红书号：${obj.xhsId||'-'}</div>
       <textarea id="ops-reply-text" class="form-textarea" style="min-height:80px" placeholder="${placeholder}"></textarea>
       <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end">
@@ -1841,7 +1868,7 @@ function openOpsReplyObjection(actId, objId, type, action) {
 
 function submitOpsObjReply(actId, objId, type, action) {
   const reply = (document.getElementById('ops-reply-text')?.value||'').trim();
-  if (action !== 'vendor' && !reply) { toast('请填写回复内容'); return; }
+  if (action === 'reject' && !reply) { toast('请填写拒绝理由'); return; }
   const act = getActivity(actId);
   const list = type === 'whitelist' ? act.whitelistObjections : act.winnerObjections;
   const obj = list.find(o => o.id === objId);
@@ -3586,10 +3613,12 @@ function renderAuthorObjectionActSection() {
     <div class="form-group">
       <label>作者ID <span style="color:var(--red)">*</span>（24位字母数字）</label>
       <input type="text" class="form-input" id="obj-author-id-main" placeholder="请填写您的作者ID（24位）">
+      <div style="font-size:12px;color:#999;margin-top:4px">⚠️ 请确认填写正确，填写错误默认不处理该异议</div>
     </div>
     <div class="form-group">
       <label>小红书号 <span style="color:var(--red)">*</span></label>
       <input type="text" class="form-input" id="obj-xhs-id-main" placeholder="请填写您的小红书号">
+      <div style="font-size:12px;color:#999;margin-top:4px">⚠️ 请确认填写正确，填写错误默认不处理该异议</div>
     </div>
     <div class="form-group">
       <label>异议类型 <span style="color:var(--red)">*</span></label>
@@ -3661,10 +3690,7 @@ function startObjectionFromWL(actId, type, queryEncoded) {
       setTimeout(() => {
         const typeSel = document.getElementById('obj-type-main');
         if (typeSel) typeSel.value = type;
-        // 如果 query 是小红书号，预填
-        const q = decodeURIComponent(queryEncoded);
-        const xhsEl = document.getElementById('obj-xhs-id-main');
-        if (xhsEl && q) xhsEl.value = q;
+        // 不预填小红书号，让作者自行确认填写
       }, 50);
     }
   }, 100);
