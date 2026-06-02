@@ -369,7 +369,6 @@ tr:hover td{background:#fafafa}
     <div class="nav-logo"><div class="logo-icon">🎮</div>光遇 · 生态达人活动管理</div>
     <div class="nav-right">
       <span class="nav-tag" id="vendor-ip-tag"></span>
-      <button class="btn-logout" onclick="logout()">退出</button>
     </div>
   </nav>
   <div class="container main-content">
@@ -788,7 +787,7 @@ function goLoginScreen(screen) {
   document.querySelectorAll('.login-screen').forEach(s => s.classList.remove('active'));
   if (screen === 'author') {
     // Author goes directly to page-author (has its own login/register UI)
-    STATE.role = 'author'; STATE.ip = 'yy';
+    STATE.role = 'author'; STATE.ip = 'sky';
     enterPage('author');
     return;
   }
