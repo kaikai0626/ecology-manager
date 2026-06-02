@@ -1564,7 +1564,7 @@ function renderOpsWhitelist() {
         <span style="font-size:13px;color:var(--gray)">共 ${wl.length} 人</span>
         ${wl.length ? `<button class="btn btn-outline btn-sm" onclick="downloadOpsWL('${a.id}','${a.name}')">⬇ 下载白名单</button>` : ''}
       </div>
-      <div class="search-bar"><input class="search-input" placeholder="搜索作者ID/小红书号" oninput="filterWLSection(this,'wl-${a.id}','${a.id}')"></div>
+      <div class="search-bar"><input class="search-input" placeholder="搜索作者ID/小红书号" oninput="filterWLSection(this,'wl-collapse-${a.id}','${a.id}')"></div>
       <div id="wl-collapse-${a.id}">
         ${wl.length <= 5
           ? renderWLTable(wl, a.id, true)
@@ -1697,10 +1697,26 @@ function saveWLManual() {
 function filterWLSection(input, tableId, actId) {
   const q = input.value.trim();
   const act = getActivity(actId);
-  const filtered = q ? (act.whitelist||[]).filter(r =>
-    (r.authorId||'').includes(q)||(r.xhsId||'').includes(q)||(r.name||'').includes(q)
-  ) : act.whitelist||[];
-  document.getElementById(tableId).innerHTML = renderWLTable(filtered, actId, true);
+  const container = document.getElementById(tableId);
+  if (!container) return;
+  if (!q) {
+    // 清空搜索时恢复默认展示（5条）
+    const wl = act.whitelist || [];
+    container.innerHTML = wl.length <= 5
+      ? renderWLTable(wl, actId, true)
+      : renderWLTable(wl.slice(0,5), actId, false) +
+        `<div id="wl-full-${actId}" style="display:none">${renderWLTable(wl, actId, true)}</div>
+         <div style="text-align:center;margin-top:8px"><button class="btn btn-ghost btn-sm" id="wl-toggle-${actId}" onclick="toggleWLExpand('${actId}')">▼ 点击展开全部 ${wl.length} 人</button></div>`;
+    return;
+  }
+  const filtered = (act.whitelist||[]).filter(r =>
+    (r.authorId||'').toLowerCase().includes(q.toLowerCase()) ||
+    (r.xhsId||'').toLowerCase().includes(q.toLowerCase()) ||
+    (r.name||'').toLowerCase().includes(q.toLowerCase())
+  );
+  container.innerHTML = filtered.length
+    ? renderWLTable(filtered, actId, true)
+    : '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px">未找到匹配结果</div>';
 }
 
 // ---- Ops Objections Tab ----
