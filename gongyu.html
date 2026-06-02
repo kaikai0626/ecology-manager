@@ -541,7 +541,7 @@ tr:hover td{background:#fafafa}
 <div class="modal-mask" id="modal-vendor-detail">
   <div class="modal" style="max-width:700px;width:95%">
     <button class="modal-close" onclick="closeModal('modal-vendor-detail')">×</button>
-    <div class="modal-title">提交活动规则</div>
+    <div class="modal-title">编辑活动规则</div>
     <div id="vendor-detail-form"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-vendor-detail')">取消</button>
@@ -2405,7 +2405,7 @@ function renderVendorActivities() {
           <span class="activity-name">${a.name}</span>
           <span style="margin-left:10px">${(a.whitelist||[]).length > 0 ? statusBadge(a.status) : '<span style="font-size:12px;color:#aaa;font-weight:400">白名单未公示</span>'}</span>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="openVendorEditDetail('${a.id}')">✏️ 提交活动规则</button>
+        <button class="btn btn-outline btn-sm" onclick="openVendorEditDetail('${a.id}')">✏️ 编辑活动规则</button>
       </div>
       ${renderActivityDetailView(a.detail)}
     </div>
@@ -2455,7 +2455,7 @@ function openVendorEditDetail(actId) {
   const mode = d.mode || 'framework';
   const subHtml = (d.subActivities||[]).map((s,i) => renderSubActForm(s,i)).join('');
   document.getElementById('vendor-detail-form').innerHTML = `
-    <div class="alert alert-info" style="margin-bottom:12px">📌 请填写活动时间并选择提交方式，建议使用「上传活动规则」提交链接给运营审核。活动开始时间到达后，作者端可查看规则。</div>
+    <div class="alert alert-info" style="margin-bottom:12px">📌 建议点击「上传活动规则」提交链接给运营审核。活动开始时间到达后，作者端可查看规则。</div>
     <div class="form-row" style="margin-bottom:4px">
       <div class="form-group"><label>活动开始时间 <span style="color:var(--red)">*</span></label><input type="datetime-local" class="form-input" id="vd-start" value="${d.startTime||''}"></div>
       <div class="form-group"><label>活动结束时间 <span style="color:var(--red)">*</span></label><input type="datetime-local" class="form-input" id="vd-end" value="${d.endTime||''}"></div>
