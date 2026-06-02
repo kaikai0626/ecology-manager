@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>光遇 · 生态达人活动管理</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -47,10 +50,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei
 .ip-dot{width:10px;height:10px;border-radius:50%}
 
 /* Password input */
-.pwd-wrap{margin-top:24px}
+.pwd-wrap{margin-top:24px;position:relative;z-index:5}
 .pwd-input{width:280px;padding:12px 16px;border:2px solid var(--border);border-radius:10px;font-size:15px;outline:none;transition:border .2s}
 .pwd-input:focus{border-color:var(--red)}
-.btn-enter{margin-top:16px;background:var(--red);color:#fff;border:none;padding:13px 48px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;display:block;margin-left:auto;margin-right:auto}
+.btn-enter{margin-top:16px;background:var(--red);color:#fff;border:none;padding:13px 48px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;display:block;margin-left:auto;margin-right:auto;position:relative;z-index:10;pointer-events:auto;-webkit-appearance:none;touch-action:manipulation;width:100%;max-width:280px}
 .btn-enter:hover{background:var(--red-dark)}
 .err-msg{color:var(--red);font-size:13px;margin-top:8px}
 
@@ -273,7 +276,6 @@ tr:hover td{background:#fafafa}
   <!-- Screen 2: 运营登录 -->
   <div id="login-screen-ops" class="login-screen">
     <div class="login-wrap" style="max-width:400px">
-      <button onclick="goLoginScreen('home')" style="background:none;border:none;color:var(--gray);cursor:pointer;font-size:13px;margin-bottom:24px;display:flex;align-items:center;gap:4px">← 返回</button>
       <div style="font-size:40px;margin-bottom:12px">🛠️</div>
       <div class="login-title" style="font-size:22px">运营管理台</div>
       <div class="login-sub">请输入运营口令</div>
@@ -802,7 +804,7 @@ function goLoginScreen(screen) {
 
 function doLoginRole(role) {
   if (role === 'ops') {
-    const pwd = document.getElementById('ops-pwd-input').value;
+    const pwd = document.getElementById('ops-pwd-input').value.trim();
     const errEl = document.getElementById('ops-login-err');
     if (pwd !== 'gyxhs2026') { errEl.textContent = '口令错误'; errEl.style.display='block'; return; }
     errEl.style.display = 'none';
