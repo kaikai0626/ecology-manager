@@ -2455,7 +2455,7 @@ function openVendorEditDetail(actId) {
   const mode = d.mode || 'framework';
   const subHtml = (d.subActivities||[]).map((s,i) => renderSubActForm(s,i)).join('');
   document.getElementById('vendor-detail-form').innerHTML = `
-    <div class="alert alert-info" style="margin-bottom:12px">📌 建议点击「上传活动规则」提交链接给运营审核。活动开始时间到达后，作者端可查看规则。</div>
+    <div class="alert alert-info" style="margin-bottom:12px">📌 建议点击「上传活动规则」提交链接给运营审核。</div>
     <div class="form-row" style="margin-bottom:4px">
       <div class="form-group"><label>活动开始时间 <span style="color:var(--red)">*</span></label><input type="datetime-local" class="form-input" id="vd-start" value="${d.startTime||''}"></div>
       <div class="form-group"><label>活动结束时间 <span style="color:var(--red)">*</span></label><input type="datetime-local" class="form-input" id="vd-end" value="${d.endTime||''}"></div>
