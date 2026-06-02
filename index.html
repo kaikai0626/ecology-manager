@@ -710,8 +710,34 @@ async function syncFromRemote() {
     _remoteGet('ecology_data_v1'),
     _remoteGet('ecology_users_v1')
   ]);
+  // 活动数据：远端直接覆盖（运营是权威来源）
   if (remoteData) localStorage.setItem('ecology_data_v1', JSON.stringify(remoteData));
-  if (remoteUsers) localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
+  // 用户数据：合并本地+远端，不丢弃任何一方的用户。审批状态以reviewedAt更新的为准
+  if (remoteUsers) {
+    try {
+      const localRaw = localStorage.getItem('ecology_users_v1');
+      const localUsers = localRaw ? (JSON.parse(localRaw).users || {}) : {};
+      const remote = remoteUsers.users || {};
+      const allKeys = new Set([...Object.keys(localUsers), ...Object.keys(remote)]);
+      const merged = {};
+      let hasLocalOnly = false;
+      allKeys.forEach(k => {
+        const l = localUsers[k], r = remote[k];
+        if (!r) { merged[k] = l; hasLocalOnly = true; return; } // 本地独有 → 保留并推送
+        if (!l) { merged[k] = r; return; }  // 远端独有 → 保留
+        // 两端都有： reviewedAt 更新的胜；相同则用远端
+        const lt = new Date(l.reviewedAt || l.createdAt || 0).getTime();
+        const rt = new Date(r.reviewedAt || r.createdAt || 0).getTime();
+        merged[k] = lt > rt ? l : r;
+        if (lt > rt) hasLocalOnly = true;
+      });
+      localStorage.setItem('ecology_users_v1', JSON.stringify({ users: merged }));
+      // 本地有远端没有的数据，立即推送合并结果到D1
+      if (hasLocalOnly) _remoteSet('ecology_users_v1', { users: merged });
+    } catch(e) {
+      localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
+    }
+  }
 }
 
 function getData() {
@@ -2749,6 +2775,8 @@ function authorLogin() {
 
   // 登录成功
   STATE.authorUser = user;
+  // 登录时把本地用户数据推到D1（兜底：确保旧版本注册的用户也能同步）
+  _remoteSet('ecology_users_v1', { users: getUsers() });
   // 从用户参与游戏中确定当前IP（如果已选了IP就用已选的，否则取第一个）
   if (!STATE.ip && user.games && user.games.length) {
     STATE.ip = user.games[0];
