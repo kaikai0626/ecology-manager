@@ -735,6 +735,10 @@ async function syncFromRemote() {
       localStorage.setItem('ecology_users_v1', JSON.stringify({ users: merged }));
       // 本地有远端没有的数据，立即推送合并结果到D1
       if (hasLocalOnly) _remoteSet('ecology_users_v1', { users: merged });
+      // 同步更新 STATE.authorUser（运营可能修改了 authorId）
+      if (STATE.authorUser && merged[STATE.authorUser.username]) {
+        STATE.authorUser = merged[STATE.authorUser.username];
+      }
     } catch(e) {
       localStorage.setItem('ecology_users_v1', JSON.stringify(remoteUsers));
     }
@@ -2940,17 +2944,23 @@ function getAuthorMatchKey() {
 
 function matchWL(wlEntry, user) {
   if (!user) return false;
-  // Match by xhsId (if whitelist has xhsId that appears in user's xhsLink)
+  // 优先用 user.authorId 直接匹配（运营修改后的权威字段）
+  if (wlEntry.authorId && user.authorId && wlEntry.authorId === user.authorId) return true;
+  // 用 xhsId 匹配 user.authorId
+  if (wlEntry.xhsId && user.authorId && user.authorId === wlEntry.xhsId) return true;
+  // 用 xhsId 匹配 user.xhsLink
   if (wlEntry.xhsId && user.xhsLink && user.xhsLink.includes(wlEntry.xhsId)) return true;
-  // Match by authorId in xhsLink
+  // 用 authorId 匹配 user.xhsLink
   if (wlEntry.authorId && user.xhsLink && user.xhsLink.includes(wlEntry.authorId)) return true;
-  // Match by username
+  // 用户名匹配
   if (wlEntry.name && user.username && wlEntry.name === user.username) return true;
   return false;
 }
 
 function matchWinner(winnerEntry, user) {
   if (!user) return false;
+  if (winnerEntry.authorId && user.authorId && winnerEntry.authorId === user.authorId) return true;
+  if (winnerEntry.xhsId && user.authorId && user.authorId === winnerEntry.xhsId) return true;
   if (winnerEntry.xhsId && user.xhsLink && user.xhsLink.includes(winnerEntry.xhsId)) return true;
   if (winnerEntry.authorId && user.xhsLink && user.xhsLink.includes(winnerEntry.authorId)) return true;
   if (winnerEntry.name && user.username && winnerEntry.name === user.username) return true;
