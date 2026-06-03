@@ -2793,21 +2793,34 @@ function authorRegister() {
 
   const parsedAuthorId = parseAuthorId(xhsLink);
   const newUser = { username, password: pwd, xhsLink, games, authorId: parsedAuthorId, createdAt: now(), status: 'pending' };
-  saveUser(newUser);
-  // saveUsers 内已立即同步，无需重复操作
-
-  // 清空表单
-  ['ar-username','ar-password','ar-password2','ar-xhslink'].forEach(id => document.getElementById(id).value='');
-
-  showAuthorLogin();
-  // 在登录框上方展示成功提示
-  const loginForm = document.getElementById('author-login-form');
-  const msg = document.createElement('div');
-  msg.className = 'alert alert-success';
-  msg.style.marginBottom = '16px';
-  msg.textContent = '✅ 注册申请已提交！请等待运营审核，审核通过后即可登录。';
-  loginForm.prepend(msg);
-  setTimeout(() => msg.remove(), 6000);
+  // 先把新用户写入本地
+  const allUsers = getUsers();
+  allUsers[username] = newUser;
+  const val = { users: allUsers };
+  localStorage.setItem('ecology_users_v1', JSON.stringify(val));
+  // 立即同步到D1，等待完成再跳转
+  document.getElementById('ar-err').textContent = '正在提交注册...';
+  document.getElementById('ar-err').style.display = 'block';
+  document.getElementById('ar-err').style.color = '#1890ff';
+  _remoteSet('ecology_users_v1', val).then(() => {
+    // 清空表单
+    ['ar-username','ar-password','ar-password2','ar-xhslink'].forEach(id => document.getElementById(id).value='');
+    showAuthorLogin();
+    // 在登录框上方展示成功提示
+    const loginForm = document.getElementById('author-login-form');
+    const msg = document.createElement('div');
+    msg.className = 'alert alert-success';
+    msg.style.marginBottom = '16px';
+    msg.textContent = '✅ 注册申请已提交！请等待运营审核，审核通过后即可登录。';
+    loginForm.prepend(msg);
+    setTimeout(() => msg.remove(), 6000);
+  }).catch(() => {
+    // D1写入失败时提示错误
+    const errEl2 = document.getElementById('ar-err');
+    errEl2.textContent = '网络异常，请刷新页面后重试';
+    errEl2.style.color = '#f5222d';
+    errEl2.style.display = 'block';
+  });
 }
 
 function authorLogin() {
