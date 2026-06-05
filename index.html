@@ -731,8 +731,9 @@ function getData() {
   return { activities: {} };
 }
 function saveData(data) {
+  // 先写本地，同时异步写D1
   localStorage.setItem('ecology_data_v1', JSON.stringify(data));
-  _remoteSet('ecology_data_v1', data); // 立即同步
+  _remoteSet('ecology_data_v1', data);
 }
 function getActivities() { return getData().activities || {}; }
 function getActivity(id) { return getActivities()[id]; }
@@ -844,12 +845,15 @@ function showPage(role) {
   } else {
     document.getElementById('page-login').classList.add('active');
   }
-  // 每次进入页面都从 D1 拉最新数据并重渲染
-  syncFromRemote().then(() => {
-    if (role === 'ops') { renderOpsActivities(); updateDataSummary(); if(STATE.opsTab==='creators') renderOpsCreators(); }
-    else if (role === 'vendor') renderVendorActivities();
-    else if (role === 'author') renderAuthorStatus();
-  }).catch(()=>{});
+  // 页面首次进入时从 D1 拉最新数据（只运行一次，不在切Tab时反复覆盖本地）
+  if (!STATE.synced) {
+    STATE.synced = true;
+    syncFromRemote().then(() => {
+      if (role === 'ops') { renderOpsActivities(); updateDataSummary(); if(STATE.opsTab==='creators') renderOpsCreators(); }
+      else if (role === 'vendor') renderVendorActivities();
+      else if (role === 'author') renderAuthorStatus();
+    }).catch(()=>{});
+  }
 }
 
 window.addEventListener('hashchange', function() {
@@ -937,11 +941,7 @@ function opsTab(tab) {
   if (tab === 'notes') renderOpsNotes();
   if (tab === 'winners') renderOpsWinners();
   if (tab === 'objections') renderOpsObjections();
-  if (tab === 'creators') {
-    renderOpsCreators();
-    // 切换到创作者Tab时从 D1 刷新最新数据
-    syncFromRemote().then(() => renderOpsCreators()).catch(()=>{});
-  }
+  if (tab === 'creators') renderOpsCreators();
   if (tab === 'backup') updateDataSummary();
 }
 
@@ -1905,8 +1905,9 @@ function getUsers() {
 }
 function saveUsers(users) {
   const val = { users };
+  // 先写本地（UI立即响应），同时异步写D1
   localStorage.setItem('ecology_users_v1', JSON.stringify(val));
-  _remoteSet('ecology_users_v1', val); // 立即同步
+  _remoteSet('ecology_users_v1', val);
 }
 function getUser(username) { return getUsers()[username]; }
 function saveUser(user) {
