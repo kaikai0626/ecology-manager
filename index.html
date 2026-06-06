@@ -320,10 +320,8 @@ tr:hover td{background:#fafafa}
       <div class="tab" onclick="opsTab('notes')">📝 合规笔记</div>
       <div class="tab" onclick="opsTab('winners')">🏆 获奖公示</div>
       <div class="tab" onclick="opsTab('objections')">💬 异议处理</div>
-      <div class="tab" onclick="opsTab('creators')">👥 创作者管理</div>
       <div class="tab" onclick="opsTab('backup')">💾 数据备份</div>
     </div>
-    <div id="ops-tab-creators" style="display:none"><div id="ops-creators-content"></div></div>
     <div id="ops-tab-activities">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <div style="font-size:14px;font-weight:600;color:#333">🎮 燕云十六声 · 活动列表</div>
@@ -895,9 +893,9 @@ let opsCurrentTab = 'activities';
 function opsTab(tab) {
   opsCurrentTab = tab;
   document.querySelectorAll('#page-ops .tab').forEach((t,i) => {
-    t.classList.toggle('active', ['activities','whitelist','notes','winners','objections','creators','backup'][i] === tab);
+    t.classList.toggle('active', ['activities','whitelist','notes','winners','objections','backup'][i] === tab);
   });
-  ['activities','whitelist','notes','winners','objections','creators','backup'].forEach(t => {
+  ['activities','whitelist','notes','winners','objections','backup'].forEach(t => {
     const el = document.getElementById('ops-tab-'+t);
     if (el) el.style.display = t===tab ? 'block' : 'none';
   });
@@ -906,7 +904,7 @@ function opsTab(tab) {
   if (tab === 'notes') renderOpsNotes();
   if (tab === 'winners') renderOpsWinners();
   if (tab === 'objections') renderOpsObjections();
-  if (tab === 'creators') renderOpsCreators();
+
   if (tab === 'backup') updateDataSummary();
 }
 
@@ -1860,211 +1858,6 @@ function updateDataSummary() {
   const activities = Object.values(getActivities());
   const el = document.getElementById('data-summary');
   if (el) el.textContent = `共 ${activities.length} 个活动，白名单总计 ${activities.reduce((s,a)=>s+(a.whitelist||[]).length,0)} 人`;
-}
-
-// ========== USER DATA ==========
-function getUsers() {
-  try {
-    const raw = localStorage.getItem('ecology_users_v1');
-    if (raw) return JSON.parse(raw).users || {};
-  } catch(e) {}
-  return {};
-}
-function saveUsers(users) {
-  // 先从 D1 读最新全量，将本次操作 merge 进去再写回，防止不同客户端因本地数据不全而覆盖D1
-  _remoteGet('ecology_users_v1').then(remote => {
-    const remoteUsers = (remote && remote.users) ? remote.users : {};
-    // 当前传入的 users 覆盖远端同名的，远端多出的保留
-    const merged = Object.assign({}, remoteUsers, users);
-    const val = { users: merged };
-    localStorage.setItem('ecology_users_v1', JSON.stringify(val));
-    return _remoteSet('ecology_users_v1', val);
-  }).catch(() => {
-    const val = { users };
-    localStorage.setItem('ecology_users_v1', JSON.stringify(val));
-    _remoteSet('ecology_users_v1', val);
-  });
-}
-function getUser(username) { return getUsers()[username]; }
-function saveUser(user) {
-  const users = getUsers();
-  users[user.username] = user;
-  saveUsers(users);
-}
-
-// ========== OPS CREATORS ==========
-function renderOpsCreators() {
-  const users = Object.values(getUsers());
-  const el = document.getElementById('ops-creators-content');
-
-  // IP filter state for creators
-  const activeIP = STATE.creatorsIPFilter || 'all';
-
-  const filtered = users.filter(u => {
-    if (activeIP === 'all') return true;
-    return (u.games || []).includes(activeIP);
-  });
-
-  const pending = filtered.filter(u => u.status === 'pending');
-  const approved = filtered.filter(u => u.status === 'approved');
-  const rejected = filtered.filter(u => u.status === 'rejected');
-
-  el.innerHTML = `
-    <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <span style="font-size:14px;font-weight:600;color:#333">🎮 燕云十六声 · 创作者管理（共 ${users.length} 人）</span>
-      <button class="btn btn-ghost btn-sm" onclick="loadActivitiesFromD1().then(()=>renderOpsCreators())" style="font-size:12px">🔄 刷新</button>
-    </div>
-    <div class="search-bar" style="margin-bottom:12px">
-      <input class="search-input" id="creators-search" placeholder="搜索用户名 / 作者ID / 小红书号" oninput="filterCreatorsSearch(this.value)">
-    </div>
-
-    ${pending.length ? `
-    <div class="section" style="margin-bottom:14px">
-      <div class="section-title"><span class="pending-dot"></span>待审核（${pending.length}）</div>
-      <div style="font-size:11px;color:var(--gray);padding:6px 14px;background:#fafafa;border-bottom:1px solid #f5f5f5;display:flex;gap:12px">
-        <span style="min-width:100px">用户名</span><span style="width:80px">密码</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span>
-      </div>
-      ${pending.map(u => renderCreatorCard(u)).join('')}
-    </div>` : ''}
-
-    <div class="section" style="margin-bottom:14px">
-      <div class="section-title">已通过（${approved.length}）</div>
-      ${approved.length ? `
-      <div style="font-size:11px;color:var(--gray);padding:6px 14px;background:#fafafa;border-bottom:1px solid #f5f5f5;display:flex;gap:12px">
-        <span style="min-width:100px">用户名</span><span style="width:80px">密码</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span>
-      </div>
-      ${approved.map(u => renderCreatorCard(u)).join('')}` : '<div style="color:#aaa;font-size:13px;padding:12px 14px">暂无</div>'}
-    </div>
-
-    ${rejected.length ? `
-    <div class="section" style="margin-bottom:14px">
-      <div class="section-title">已拒绝（${rejected.length}）</div>
-      <div style="font-size:11px;color:var(--gray);padding:6px 14px;background:#fafafa;border-bottom:1px solid #f5f5f5;display:flex;gap:12px">
-        <span style="min-width:100px">用户名</span><span style="width:80px">密码</span><span style="width:60px">状态</span><span style="min-width:120px">作者ID</span><span>主页/截图</span><span style="margin-left:auto">操作</span>
-      </div>
-      ${rejected.map(u => renderCreatorCard(u)).join('')}
-    </div>` : ''}
-  `;
-}
-
-function filterCreatorsIP(ip, el) {
-  STATE.creatorsIPFilter = ip;
-  renderOpsCreators();
-}
-
-function parseAuthorId(xhsLink) {
-  if (!xhsLink) return '';
-  // https://www.xiaohongshu.com/user/profile/5f1234567890abcdef123456
-  const m = xhsLink.match(/\/user\/profile\/([a-zA-Z0-9]+)/);
-  return m ? m[1] : '';
-}
-
-function renderCreatorCard(u) {
-  const statusMap = { pending: '待审核', approved: '已通过', rejected: '已拒绝' };
-  const statusClass = { pending: 'tag-pending', approved: 'tag-approved', rejected: 'tag-rejected' };
-  const authorId = u.authorId || parseAuthorId(u.xhsLink) || '-';
-  if (!u.authorId && authorId !== '-') { u.authorId = authorId; saveUser(u); }
-  return `
-    <div data-creator-row="${u.username} ${u.authorId||''} ${u.xhsLink||''}" style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap">
-      <span style="font-weight:600;min-width:100px;font-size:13px">${u.username}</span>
-      <span style="font-size:11px;color:#888;width:80px;font-family:monospace">${u.password||'-'}</span>
-      <span class="tag ${statusClass[u.status]||'tag-pending'}" style="font-size:11px">${statusMap[u.status]||u.status}</span>
-      <span style="font-size:12px;color:var(--gray);min-width:120px" id="creator-id-${u.username}">ID: ${authorId}</span>
-      <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 8px" onclick="editCreatorId('${u.username}')">编辑ID</button>
-      ${u.xhsLink ? `<a href="${u.xhsLink}" target="_blank" style="font-size:12px;color:var(--red)">主页↗</a>` : ''}
-      ${u.xhsScreenshot ? `<img src="${u.xhsScreenshot}" onclick="viewScreenshot('${u.username}')" title="点击查看截图" style="height:28px;border-radius:4px;border:1px solid var(--border);cursor:pointer">` : ''}
-      <span style="font-size:11px;color:#bbb;margin-left:auto">${fmtDate(u.createdAt)}</span>
-      <div class="btn-group" style="margin-left:8px">
-        ${u.status === 'pending' ? `
-          <button class="btn btn-success btn-sm" onclick="reviewCreator('${u.username}','approved')">通过</button>
-          <button class="btn btn-danger btn-sm" onclick="reviewCreator('${u.username}','rejected')">拒绝</button>
-        ` : u.status === 'approved' ? `
-          <button class="btn btn-danger btn-sm" onclick="reviewCreator('${u.username}','rejected')">撤销</button>
-        ` : `
-          <button class="btn btn-success btn-sm" onclick="reviewCreator('${u.username}','approved')">重新通过</button>
-          <button class="btn btn-sm" style="background:#fff1f0;color:#f5222d;border:1px solid #ffa39e" onclick="deleteCreator('${u.username}')">删除</button>
-        `}
-      </div>
-    </div>
-  `;
-}
-
-function deleteCreator(username) {
-  if (!confirm(`确认删除创作者「${username}」？此操作不可撤销。`)) return;
-  const users = getUsers();
-  delete users[username];
-  saveUsers(users);
-  renderOpsCreators();
-  toast(`已删除 ${username}`);
-}
-
-function reviewCreator(username, status) {
-  const user = getUser(username);
-  if (!user) return;
-  user.status = status;
-  user.reviewedAt = now();
-  saveUser(user); // saveUsers 内已立即同步
-  renderOpsCreators();
-  toast(status === 'approved' ? `✅ 已通过 ${username} 的注册申请` : `已拒绝 ${username}`);
-}
-
-function viewScreenshot(username) {
-  const user = getUser(username);
-  if (!user || !user.xhsScreenshot) return;
-  const mask = document.createElement('div');
-  mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer';
-  mask.innerHTML = `<img src="${user.xhsScreenshot}" style="max-width:90vw;max-height:90vh;border-radius:8px">`;
-  mask.onclick = () => document.body.removeChild(mask);
-  document.body.appendChild(mask);
-}
-
-function exportCreatorsCSV() {
-  const users = Object.values(getUsers());
-  const rows = [['用户名','密码','作者ID','小红书主页','状态','注册时间','审批时间']];
-  users.forEach(u => {
-    const statusMap = { pending:'待审核', approved:'已通过', rejected:'已拒绝' };
-    rows.push([
-      u.username || '',
-      u.password || '',
-      u.authorId || '',
-      u.xhsLink || '',
-      statusMap[u.status] || u.status || '',
-      u.createdAt ? fmtDate(u.createdAt) : '',
-      u.reviewedAt ? fmtDate(u.reviewedAt) : ''
-    ]);
-  });
-  const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');
-  // 加BOM让Excel正确识别中文
-  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `creators-${new Date().toISOString().slice(0,10)}.csv`;
-  a.click(); URL.revokeObjectURL(url);
-  toast('创作者列表已导出 CSV');
-}
-
-function filterCreatorsSearch(kw) {
-  const q = kw.trim().toLowerCase();
-  document.querySelectorAll('#ops-creators-content [data-creator-row]').forEach(row => {
-    const text = row.dataset.creatorRow.toLowerCase();
-    row.style.display = (!q || text.includes(q)) ? '' : 'none';
-  });
-}
-
-function editCreatorId(username) {
-  const user = getUser(username);
-  if (!user) return;
-  const newId = prompt(`修改「${username}」的作者ID：`, user.authorId || '');
-  if (newId === null) return;
-  const trimmed = newId.trim();
-  if (trimmed && !/^[A-Za-z0-9]{24}$/.test(trimmed)) {
-    toast('作者ID格式不对（需24位字母数字）', 'error'); return;
-  }
-  user.authorId = trimmed;
-  saveUser(user);
-  const el = document.getElementById('creator-id-'+username);
-  if (el) el.textContent = 'ID: ' + (trimmed || '-');
-  toast('✅ 作者ID已更新');
 }
 
 function exportData() {
