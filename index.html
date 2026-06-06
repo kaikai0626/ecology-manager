@@ -2562,8 +2562,11 @@ function queryAuthorStatus() {
   document.getElementById('author-query-wrap').style.display = 'none';
   document.getElementById('author-main').style.display = 'block';
   document.getElementById('author-queried-id').textContent = authorId;
-  updateAuthorRulesTabVisibility();
-  authorTab('whitelist');
+  // 确保 D1 数据加载完成后再渲染
+  loadActivitiesFromD1().then(() => {
+    updateAuthorRulesTabVisibility();
+    authorTab('whitelist');
+  });
 }
 
 function resetAuthorQuery() {
