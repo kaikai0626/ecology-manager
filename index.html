@@ -731,9 +731,13 @@ function getData() {
   return { activities: {} };
 }
 function saveData(data) {
-  // 先写本地，同时异步写D1
+  // For bulk import: write each activity atomically to D1
+  const activities = data.activities || {};
+  for (const [id, act] of Object.entries(activities)) {
+    if (act) _remoteSet('activity_v1_' + id, act);
+  }
+  // Update local cache
   localStorage.setItem('ecology_data_v1', JSON.stringify(data));
-  _remoteSet('ecology_data_v1', data);
 }
 function getActivities() { return getData().activities || {}; }
 function getActivity(id) { return getActivities()[id]; }
@@ -995,9 +999,12 @@ function deleteActivity(actId) {
   const act = getActivity(actId);
   if (!act) return;
   if (!confirm(`确认删除活动「${act.name}」？\n此操作不可撤销，活动数据（白名单、笔记、获奖名单）将全部删除。`)) return;
+  // Delete from D1 atomically
+  _remoteSet('activity_v1_' + actId, null);
+  // Update local cache
   const data = getData();
   delete data.activities[actId];
-  saveData(data);
+  localStorage.setItem('ecology_data_v1', JSON.stringify(data));
   renderOpsActivities();
   toast('✅ 活动已删除');
 }
