@@ -1904,10 +1904,19 @@ function getUsers() {
   return {};
 }
 function saveUsers(users) {
-  const val = { users };
-  // 先写本地（UI立即响应），同时异步写D1
-  localStorage.setItem('ecology_users_v1', JSON.stringify(val));
-  _remoteSet('ecology_users_v1', val);
+  // 先从 D1 读最新全量，将本次操作 merge 进去再写回，防止不同客户端因本地数据不全而覆盖D1
+  _remoteGet('ecology_users_v1').then(remote => {
+    const remoteUsers = (remote && remote.users) ? remote.users : {};
+    // 当前传入的 users 覆盖远端同名的，远端多出的保留
+    const merged = Object.assign({}, remoteUsers, users);
+    const val = { users: merged };
+    localStorage.setItem('ecology_users_v1', JSON.stringify(val));
+    return _remoteSet('ecology_users_v1', val);
+  }).catch(() => {
+    const val = { users };
+    localStorage.setItem('ecology_users_v1', JSON.stringify(val));
+    _remoteSet('ecology_users_v1', val);
+  });
 }
 function getUser(username) { return getUsers()[username]; }
 function saveUser(user) {
