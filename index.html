@@ -2701,7 +2701,10 @@ function renderAuthorObjection() {
     '<div class="alert" style="background:#fff7e6;border-color:#ffd591;color:#d46b08;margin-bottom:16px;font-size:13px">填写错误运营将默认该异议无需处理</div>' +
     activities.map(a => {
       const wlOpen = isWLOpen(a);
-      const canObj = wlOpen || ['active','collecting'].includes(a.status);
+      // 白名单公示期内、活动进行中、白名单已公布（whitelist_ready）均可提交异议
+      const canObj = wlOpen ||
+        ['active','collecting','whitelist_ready'].includes(a.status) ||
+        (a.wlDeadline && Date.now() > new Date(a.wlDeadline).getTime()); // deadline已过就是公示期内
       if (!canObj) return '';
       return `<div style="margin-bottom:20px;padding:16px;border:1px solid #f0f0f0;border-radius:8px">
         <div style="font-weight:600;margin-bottom:12px">${escHtml(a.name || '活动')}</div>
