@@ -2752,7 +2752,7 @@ function renderAuthorObjection() {
           <label>异议类型</label>
           <select class="form-input" id="obj-type-${a.id}">
             <option value="whitelist">白名单异议</option>
-            <option value="winner">获奖异议</option>
+            ${['winners_published','completed'].includes(a.status) ? '<option value="winner">获奖异议</option>' : ''}
           </select>
         </div>
         <div class="form-group">
