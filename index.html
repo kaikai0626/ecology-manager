@@ -820,7 +820,17 @@ function showPage(role) {
   loadActivitiesFromD1().then(() => {
     if (role === 'ops') { renderOpsActivities(); updateDataSummary(); }
     else if (role === 'vendor') renderVendorActivities();
-    // author端不需要预先渲染，用户查询时才渲染
+    else if (role === 'author') {
+      // 数据加载完成后更新Tab可见性
+      updateAuthorRulesTabVisibility();
+      // 如果已查询，重渲染当前Tab
+      if (_queriedAuthorId) {
+        if (authorCurrentTab === 'whitelist') renderAuthorWhitelist();
+        else if (authorCurrentTab === 'rules') renderAuthorRules();
+        else if (authorCurrentTab === 'winners') renderAuthorWinners();
+        else if (authorCurrentTab === 'objection') renderAuthorObjection();
+      }
+    }
   }).catch(() => {
     if (role === 'ops') { renderOpsActivities(); updateDataSummary(); }
     else if (role === 'vendor') renderVendorActivities();
@@ -2657,10 +2667,25 @@ function renderAuthorRules() {
   }
   el.innerHTML = activities.map(a => {
     const detail = a.detail || {};
+    const hasLink = detail.uploadLink;
+    const hasDoc = detail.uploadDoc;
+    const hasText = detail.rules;
+    const hasPubRules = detail.publishRules;
+    const hasSupplement = detail.supplement || detail.tips;
+    if (!hasLink && !hasDoc && !hasText && !hasPubRules) {
+      return `<div class="section" style="margin-bottom:16px">
+        <div class="section-title">${a.name || '活动'}</div>
+        <div style="color:var(--gray);font-size:13px">暂无活动规则</div>
+      </div>`;
+    }
     return `<div class="section" style="margin-bottom:16px">
       <div class="section-title">${a.name || '活动'}</div>
-      ${detail.rules ? `<div style="white-space:pre-wrap;font-size:14px;line-height:1.8">${escHtml(detail.rules)}</div>` : '<div style="color:var(--gray);font-size:13px">暂无活动规则</div>'}
-      ${detail.supplement ? `<div style="margin-top:12px;padding:12px;background:#f9f9f9;border-radius:6px;font-size:13px"><strong>补充说明：</strong>${escHtml(detail.supplement)}</div>` : ''}
+      <div style="font-size:13px;color:var(--gray);margin-bottom:8px">活动时间：${detail.startTime ? fmtDate(detail.startTime) : '-'} – ${detail.endTime ? fmtDate(detail.endTime) : '-'}</div>
+      ${hasLink ? `<div style="margin-bottom:10px"><b>活动规则文档：</b><a href="${escHtml(detail.uploadLink)}" target="_blank" style="color:var(--red);word-break:break-all">${escHtml(detail.uploadLink)}</a></div>` : ''}
+      ${hasDoc ? `<div style="white-space:pre-wrap;font-size:14px;line-height:1.8;background:#fafafa;padding:12px;border-radius:6px;margin-bottom:8px">${escHtml(detail.uploadDoc)}</div>` : ''}
+      ${hasText ? `<div style="white-space:pre-wrap;font-size:14px;line-height:1.8">${escHtml(detail.rules)}</div>` : ''}
+      ${hasPubRules ? `<div style="margin-top:8px;font-size:13px"><b>发布规则：</b>${escHtml(detail.publishRules)}</div>` : ''}
+      ${hasSupplement ? `<div style="margin-top:12px;padding:12px;background:#f9f9f9;border-radius:6px;font-size:13px"><strong>补充说明：</strong>${escHtml(detail.supplement||detail.tips)}</div>` : ''}
     </div>`;
   }).join('');
 }
