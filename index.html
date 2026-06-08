@@ -2503,7 +2503,7 @@ function vendorReplyObjection(actId, objId) {
 // 作者端 - 免注册模式（参考光遇设计）
 // ============================================================
 
-let _queriedAuthorId = localStorage.getItem('author_last_id') || '';
+let _queriedAuthorId = '';
 let authorCurrentTab = 'whitelist';
 
 function authorTab(tab) {
@@ -2547,7 +2547,7 @@ function renderAuthorWhitelist() {
       <p style="color:var(--gray);font-size:14px;margin-bottom:12px">输入您的作者ID，查询是否在白名单内</p>
       <div style="display:flex;gap:10px;margin-bottom:20px">
         <input type="text" class="form-input" id="wl-query-id" placeholder="请输入您的24位作者ID"
-          value="${escHtml(_queriedAuthorId)}" style="flex:1"
+          style="flex:1"
           onkeydown="if(event.key==='Enter')queryWLStatus()">
         <button class="btn btn-primary" onclick="queryWLStatus()" style="white-space:nowrap;padding:10px 24px">查询</button>
       </div>
@@ -2572,7 +2572,7 @@ function renderAuthorWhitelist() {
   `;
 
   // 如果有上次查询的ID，自动查一次
-  if (_queriedAuthorId) setTimeout(queryWLStatus, 100);
+
 }
 
 function queryWLStatus() {
@@ -2624,7 +2624,7 @@ function renderAuthorWinners() {
       <p style="color:var(--gray);font-size:14px;margin-bottom:12px">输入您的作者ID，查询是否在获奖名单内</p>
       <div style="display:flex;gap:10px;margin-bottom:20px">
         <input type="text" class="form-input" id="winner-query-id" placeholder="请输入您的24位作者ID"
-          value="${escHtml(_queriedAuthorId)}" style="flex:1"
+          style="flex:1"
           onkeydown="if(event.key==='Enter')queryWinnerStatus()">
         <button class="btn btn-primary" onclick="queryWinnerStatus()" style="white-space:nowrap;padding:10px 24px">查询</button>
       </div>
@@ -2644,7 +2644,7 @@ function renderAuthorWinners() {
     }).join('')}
   `;
 
-  if (_queriedAuthorId) setTimeout(queryWinnerStatus, 100);
+
 }
 
 function queryWinnerStatus() {
@@ -2701,7 +2701,7 @@ function renderAuthorObjection() {
       <p style="color:var(--gray);font-size:14px;margin-bottom:12px">输入您的作者ID，查看已提交的异议及处理结果</p>
       <div style="display:flex;gap:10px;margin-bottom:12px">
         <input type="text" class="form-input" id="obj-query-id" placeholder="请输入您的24位作者ID"
-          value="${escHtml(_queriedAuthorId)}" style="flex:1"
+          style="flex:1"
           onkeydown="if(event.key==='Enter')queryMyObjections()">
         <button class="btn btn-primary" onclick="queryMyObjections()" style="white-space:nowrap;padding:10px 24px">查询</button>
       </div>
@@ -2731,7 +2731,7 @@ function renderAuthorObjection() {
     </div>
   `;
 
-  if (_queriedAuthorId) setTimeout(queryMyObjections, 100);
+
 }
 
 function renderObjForm() {
@@ -2756,7 +2756,7 @@ function renderObjForm() {
     <div class="form-row">
       <div class="form-group">
         <label>作者ID <span style="color:var(--red)">*</span></label>
-        <input type="text" class="form-input" id="obj-aid" value="${escHtml(_queriedAuthorId)}" placeholder="您的作者ID">
+        <input type="text" class="form-input" id="obj-aid" placeholder="您的作者ID">
       </div>
       <div class="form-group">
         <label>小红书号 <span style="color:var(--red)">*</span></label>
