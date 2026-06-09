@@ -951,7 +951,7 @@ function createActivity() {
   const ip = document.getElementById('new-act-ip').value;
   if (!name) { toast('请输入活动名称'); return; }
   const act = {
-    id: genId(), ip, name, status: 'draft',
+    id: generateId(), ip, name, status: 'draft',
     detail: { startTime:'', endTime:'', publishRules:'', contentDirection:'', rewards:'', tips:'', subActivities:[] },
     whitelist: [], whitelistObjections: [], notes: [], winners: [], winnerObjections: [],
     createdAt: now(), updatedAt: now(),
@@ -1396,7 +1396,7 @@ function confirmAddNote() {
   if (!noteId || !authorId || !title) { toast('请填写笔记ID、作者ID和标题'); return; }
   const act = getActivity(STATE.currentNoteActivityId);
   if (!act.notes) act.notes = [];
-  act.notes.push({ id: genId(), noteId, authorId, title, url });
+  act.notes.push({ id: generateId(), noteId, authorId, title, url });
   saveActivity(act);
   closeModal('modal-add-note');
   renderDetailBody(act);
