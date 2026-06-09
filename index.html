@@ -1317,6 +1317,7 @@ function parseWhitelistCSV(text) {
   const idxName = headers.findIndex(h => h === '昵称' || h === '名称' || h === '姓名');
   const idxRemark = headers.findIndex(h => h === '备注');
   if (idxAuthorId === -1 && idxXhsId === -1) return [];
+  const seen = new Set();
   const result = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSVLine(lines[i], sep);
@@ -1325,6 +1326,10 @@ function parseWhitelistCSV(text) {
     const authorId = idxAuthorId >= 0 ? (cols[idxAuthorId]||'').trim() : '';
     const xhsId = idxXhsId >= 0 ? (cols[idxXhsId]||'').trim() : '';
     if (!authorId && !xhsId) continue;
+    // 按 authorId 去重（保留第一条）
+    const dedupKey = authorId || ('_xhs_' + xhsId);
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
     result.push({ authorId, xhsId, name: idxName >= 0 ? (cols[idxName]||'').trim() : '' });
   }
   return result;
