@@ -1351,15 +1351,16 @@ function confirmWhitelist() {
     act.whitelist = STATE.pendingWL;
     added = STATE.pendingWL.length;
   } else {
-    // merge: add entries not already in whitelist (by authorId or xhsId)
+    // merge: 按 authorId 去重，新数据覆盖旧数据
     if (!act.whitelist) act.whitelist = [];
+    const wlMap = {};
+    act.whitelist.forEach(r => { if (r.authorId) wlMap[r.authorId] = r; });
     STATE.pendingWL.forEach(entry => {
-      const dup = act.whitelist.some(r =>
-        (entry.authorId && r.authorId === entry.authorId) ||
-        (entry.xhsId && r.xhsId === entry.xhsId)
-      );
-      if (!dup) { act.whitelist.push(entry); added++; }
+      const isNew = !wlMap[entry.authorId];
+      wlMap[entry.authorId || ('_xhs_' + entry.xhsId)] = entry;
+      if (isNew) added++;
     });
+    act.whitelist = Object.values(wlMap);
   }
   // Mark whitelist_published in timeline
   if (!act.timeline) act.timeline = [];
