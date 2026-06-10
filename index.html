@@ -957,7 +957,7 @@ function createActivity() {
   const act = {
     id: generateId(), ip, name, status: 'draft',
     detail: { startTime:'', endTime:'', publishRules:'', contentDirection:'', rewards:'', tips:'', subActivities:[] },
-    whitelist: [], whitelistObjections: [], notes: [], winners: [], winnerObjections: [],
+    whitelist: [], objections: [], notes: [], winners: [],
     createdAt: now(), updatedAt: now(),
     timeline: []
   };
@@ -1730,9 +1730,7 @@ function renderOpsObjections() {
   const el = document.getElementById('ops-objections-content');
   if (!activities.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div>暂无活动</div></div>'; return; }
   el.innerHTML = activities.map((a,idx) => {
-    const wlObjs = (a.whitelistObjections||[]).map(o=>({...o,actName:a.name,actId:a.id,type:'whitelist',ip:a.ip}));
-    const wnObjs = (a.winnerObjections||[]).map(o=>({...o,actName:a.name,actId:a.id,type:'winner',ip:a.ip}));
-    const all = [...wlObjs,...wnObjs];
+    const all = (a.objections||[]).map(o=>({...o,actName:a.name,actId:a.id,ip:a.ip}));
     const pending = all.filter(o=>o.status==='pending');
     const bodyId = 'opsobj-'+a.id;
     const isFirst = idx===0;
@@ -1765,7 +1763,7 @@ function renderObjectionTable(list, showActions) {
       </div>
       <div style="font-size:13px;line-height:1.9">
         <div><b>作者ID：</b>${o.authorId||'-'} &nbsp;<b>小红书号：</b>${o.xhsId||'-'}</div>
-        <div><b>异议原因：</b>${o.reason||'-'}</div>
+        <div><b>异议原因：</b>${o.note||o.reason||'-'}</div>
         ${o.status==='rejected' ? `<div style="color:#f5222d"><b>拒绝理由：</b>${o.rejectReason||'-'}</div>` : ''}
         ${o.status==='approved' && o.reply ? `<div style="color:#389e0d"><b>回复作者：</b>${o.reply}</div>` : ''}
         ${o.status==='vendor_pending' ? `<div style="color:#fa8c16"><b>状态：</b>已转给厂商处理${o.vendorReply?'，厂商回复：'+o.vendorReply:''}</div>` : ''}
@@ -1786,8 +1784,7 @@ function renderObjectionTable(list, showActions) {
 // Modal for ops reply
 function openOpsReplyObjection(actId, objId, type, action) {
   const act = getActivity(actId);
-  const list = type === 'whitelist' ? act.whitelistObjections : act.winnerObjections;
-  const obj = list.find(o => o.id === objId);
+  const obj = (act.objections||[]).find(o => o.id === objId);
   if (!obj) return;
   const labelMap = { approve:'通过并回复作者', vendor:'转给厂商处理', reject:'拒绝并回复作者' };
   const placeholder = action === 'vendor' ? '转给厂商的备注（可选）' : '请填写回复内容（将展示给作者）';
@@ -1813,8 +1810,7 @@ function submitOpsObjReply(actId, objId, type, action) {
   const reply = (document.getElementById('ops-reply-text')?.value||'').trim();
   if (action !== 'vendor' && !reply) { toast('请填写回复内容'); return; }
   const act = getActivity(actId);
-  const list = type === 'whitelist' ? act.whitelistObjections : act.winnerObjections;
-  const obj = list.find(o => o.id === objId);
+  const obj = (act.objections||[]).find(o => o.id === objId);
   if (!obj) return;
   document.getElementById('ops-reply-modal')?.remove();
 
@@ -2467,13 +2463,13 @@ function saveWinners() {
 function renderVendorObjections() {
   const acts = getVendorActivities().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
   const el = document.getElementById('vendor-objections-content');
-  const allActs = acts.filter(a => (a.winnerObjections||[]).some(o => o.status === 'vendor_pending' || o.vendorHandledAt));
+  const allActs = acts.filter(a => (a.objections||[]).some(o => o.status === 'vendor_pending' || o.vendorHandledAt));
   if (!allActs.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">📬</div><div>暂无待处理异议</div></div>';
     return;
   }
   el.innerHTML = allActs.map((a,idx) => {
-    const all = (a.winnerObjections||[]).filter(o => o.status === 'vendor_pending' || o.vendorHandledAt).map(o=>({...o,actId:a.id,actName:a.name}));
+    const all = (a.objections||[]).filter(o => o.status === 'vendor_pending' || o.vendorHandledAt).map(o=>({...o,actId:a.id,actName:a.name}));
     const pending = all.filter(o=>o.status==='vendor_pending');
     const bodyId = 'vendorobj-'+a.id;
     const isFirst = idx===0;
@@ -2486,7 +2482,7 @@ function renderVendorObjections() {
         <div style="font-size:13px;line-height:1.9">
           <div><b>作者ID：</b>${o.authorId||'-'}</div>
           <div><b>小红书号：</b>${o.xhsId||'-'}</div>
-          <div><b>异议原因：</b>${o.reason||'-'}</div>
+          <div><b>异议原因：</b>${o.note||o.reason||'-'}</div>
           ${o.vendorNote ? `<div style="color:var(--gray)"><b>运营备注：</b>${o.vendorNote}</div>` : ''}
         </div>
         ${showAction ? `
@@ -2518,7 +2514,7 @@ function renderVendorObjections() {
 
 function vendorReplyObjection(actId, objId) {
   const act = getActivity(actId);
-  const obj = (act.winnerObjections||[]).find(o => o.id === objId);
+  const obj = (act.objections||[]).find(o => o.id === objId);
   if (!obj) return;
   const reply = (document.getElementById('vendor-obj-reply-'+objId)?.value||'').trim();
   if (!reply) { toast('请填写回复内容'); return; }
