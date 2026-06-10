@@ -2891,7 +2891,7 @@ function renderOpsWinners() {
             <div><b>公示截止：</b>${(wp.deadline||'-').replace('T',' ')}</div>
             <div><b>公示链接：</b><a href="${wp.link||'#'}" target="_blank" style="color:var(--red)">${wp.link||'-'}</a></div>
             ${wp.note ? '<div><b>补充说明：</b>'+wp.note+'</div>' : ''}
-            <div><b>获奖人数：</b><span style="color:var(--red);font-weight:600">'+(wp.winnersCount||'未填写')+'</span></div>
+            <div><b>获奖人数：</b><span style="color:var(--red);font-weight:600">${wp.winnersCount||'未填写'}</span></div>
             <div><b>获奖名单：</b>${(wp.list||[]).length} 条记录</div>
             <div style="margin-top:8px">
               ${wp.approvedAt
