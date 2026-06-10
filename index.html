@@ -2541,9 +2541,14 @@ function authorTab(tab) {
   document.querySelectorAll('#author-main .tab').forEach((el, i) => {
     el.classList.toggle('active', i === ['whitelist','winners','objection'].indexOf(tab));
   });
-  if (tab === 'whitelist') renderAuthorWhitelist();
-  if (tab === 'winners') renderAuthorWinners();
-  if (tab === 'objection') renderAuthorObjection();
+  // 每次切 Tab 都从 D1 拉最新数据，实现三端同步
+  const renderFn = tab === 'whitelist' ? renderAuthorWhitelist
+    : tab === 'winners' ? renderAuthorWinners
+    : renderAuthorObjection;
+  // 先用本地缓存渲染（即刻显示）
+  renderFn();
+  // 再异步拉 D1 刷新
+  loadActivitiesFromD1().then(() => renderFn()).catch(() => {});
 }
 
 function isWLOpen(act) {
