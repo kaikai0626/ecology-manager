@@ -875,13 +875,17 @@ function opsTab(tab) {
     const el = document.getElementById('ops-tab-'+t);
     if (el) el.style.display = t===tab ? 'block' : 'none';
   });
-  if (tab === 'activities') { renderOpsActivities(); updateDataSummary(); }
-  if (tab === 'whitelist') renderOpsWhitelist();
-  if (tab === 'notes') renderOpsNotes();
-  if (tab === 'winners') renderOpsWinners();
-  if (tab === 'objections') renderOpsObjections();
-
-  if (tab === 'backup') updateDataSummary();
+  // 每次切 Tab 先渲染本地缓存，再后台从 D1 拉最新数据刷新
+  const refreshOps = () => {
+    if (tab === 'activities') { renderOpsActivities(); updateDataSummary(); }
+    else if (tab === 'whitelist') renderOpsWhitelist();
+    else if (tab === 'notes') renderOpsNotes();
+    else if (tab === 'winners') renderOpsWinners();
+    else if (tab === 'objections') renderOpsObjections();
+    else if (tab === 'backup') updateDataSummary();
+  };
+  refreshOps();
+  loadActivitiesFromD1().then(refreshOps);
 }
 
 function filterIP(ip, el) {
@@ -1892,11 +1896,16 @@ function vendorTab(tab) {
   tabs.forEach(t => {
     document.getElementById('vendor-tab-'+t).style.display = t===tab ? 'block' : 'none';
   });
-  if (tab === 'activities') renderVendorActivities();
-  if (tab === 'whitelist') renderVendorWhitelist();
-  if (tab === 'notes') renderVendorNotes();
-  if (tab === 'winners') renderVendorWinners();
-  if (tab === 'objections') renderVendorObjections();
+  // 每次切 Tab 先渲染本地缓存，再后台从 D1 拉最新数据刷新
+  const refreshVendor = () => {
+    if (tab === 'activities') renderVendorActivities();
+    else if (tab === 'whitelist') renderVendorWhitelist();
+    else if (tab === 'notes') renderVendorNotes();
+    else if (tab === 'winners') renderVendorWinners();
+    else if (tab === 'objections') renderVendorObjections();
+  };
+  refreshVendor();
+  loadActivitiesFromD1().then(refreshVendor);
 }
 
 function getVendorActivities() {
