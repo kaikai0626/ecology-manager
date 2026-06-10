@@ -1261,9 +1261,7 @@ function openUploadWL() {
 function previewWhitelist(e) {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    const text = ev.target.result;
+  function doPreviewWL(text) {
     const parsed = parseWhitelistCSV(text);
     STATE.pendingWL = parsed;
     const preview = document.getElementById('wl-preview');
@@ -1290,8 +1288,19 @@ function previewWhitelist(e) {
       ${parsed.length>20 ? `<div style="text-align:center;font-size:12px;color:#aaa;margin-top:6px">仅显示前20条，共${parsed.length}条</div>` : ''}
     `;
     document.getElementById('wl-confirm-btn').style.display = 'block';
+  }
+  // 自动检测编码
+  const r1 = new FileReader();
+  r1.onload = function(e1) {
+    if (e1.target.result.includes('\uFFFD')) {
+      const r2 = new FileReader();
+      r2.onload = e2 => doPreviewWL(e2.target.result);
+      r2.readAsText(file, 'GBK');
+    } else {
+      doPreviewWL(e1.target.result);
+    }
   };
-  reader.readAsText(file, 'UTF-8');
+  r1.readAsText(file, 'UTF-8');
 }
 
 function downloadWLTemplate() {
@@ -2358,9 +2367,8 @@ let _winnersList = null; // temp parsed winners list
 function parseWinnersListFile(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    const text = ev.target.result.replace(/^\uFEFF/, '');
+  function doParseWinners(text) {
+    text = text.replace(/^\uFEFF/, '');
     const lines = text.split(/\r?\n/).filter(l => l.trim());
     if (!lines.length) { toast('文件为空'); return; }
     const sep = lines[0].includes('\t') ? '\t' : ',';
@@ -2379,8 +2387,20 @@ function parseWinnersListFile(input) {
     document.getElementById('winners-list-preview').innerHTML =
       entries.slice(0,3).map(e => `<div>作者ID: ${e.authorId||'-'} / 小红书号: ${e.xhsId||'-'}</div>`).join('') +
       (entries.length > 3 ? `<div>...共 ${entries.length} 条</div>` : '');
+  }
+  // 自动检测编码：先试 UTF-8，如果含乱码字符则改用 GBK
+  const r1 = new FileReader();
+  r1.onload = function(e1) {
+    const t1 = e1.target.result;
+    if (t1.includes('\uFFFD')) {
+      const r2 = new FileReader();
+      r2.onload = e2 => doParseWinners(e2.target.result);
+      r2.readAsText(file, 'GBK');
+    } else {
+      doParseWinners(t1);
+    }
   };
-  reader.readAsText(file, 'UTF-8');
+  r1.readAsText(file, 'UTF-8');
 }
 
 let editingWinnersActId = null;
