@@ -635,12 +635,13 @@ async function _remoteGetPrefix(prefix) {
 
 async function _remoteSet(key, value) {
   try {
-    await fetch(API, {
+    const r = await fetch(API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key, value })
     });
-  } catch {}
+    if (!r.ok) console.warn('[D1 write fail]', key, r.status);
+  } catch(e) { console.warn('[D1 write error]', key, e); }
 }
 
 // 活动数据（内存+localStorage双缓存）
@@ -660,16 +661,23 @@ function getActivities_compat() { return getActivities(); }
 function getActivity(id) { return getActivities()[id]; }
 
 // 保存单个活动（拆分写D1：元数据/白名单/异议各独立key）
+// 记录哪些活动在本地有pending的写操作（防止D1拉取时覆盖）
+const _localDirty = new Set();
+
 function saveActivity(act) {
+  act.updatedAt = now();
   const cache = getActivities();
   cache[act.id] = act;
   _activitiesCache = cache;
+  _localDirty.add(act.id);
   try { localStorage.setItem('activities_cache_v2', JSON.stringify(cache)); } catch {}
   // 拆分存储：元数据不含大数组，避免单条超限
   const { whitelist, objections, ...meta } = act;
-  _remoteSet('activity_v1_' + act.id, meta);
-  if (whitelist !== undefined) _remoteSet('wl_v1_' + act.id, whitelist || []);
-  if (objections !== undefined) _remoteSet('obj_v1_' + act.id, objections || []);
+  const p1 = _remoteSet('activity_v1_' + act.id, meta);
+  const p2 = whitelist !== undefined ? _remoteSet('wl_v1_' + act.id, whitelist || []) : Promise.resolve();
+  const p3 = objections !== undefined ? _remoteSet('obj_v1_' + act.id, objections || []) : Promise.resolve();
+  // 写入完成后移除 dirty 标记
+  Promise.all([p1, p2, p3]).then(() => _localDirty.delete(act.id)).catch(() => {});
 }
 
 // saveData 兼容旧调用
@@ -707,6 +715,12 @@ async function loadActivitiesFromD1() {
       a.objections = objMap[a.id] || a.objections || [];
       acts[a.id] = a;
     });
+    // 合并时：_localDirty 里有的活动表示本地写操作尚未完成，保留内存版本
+    if (_activitiesCache) {
+      _localDirty.forEach(id => {
+        if (_activitiesCache[id]) acts[id] = _activitiesCache[id];
+      });
+    }
     _activitiesCache = acts;
     try { localStorage.setItem('activities_cache_v2', JSON.stringify(acts)); } catch {}
     return;
