@@ -659,13 +659,17 @@ function getData() { return { activities: getActivities() }; }
 function getActivities_compat() { return getActivities(); }
 function getActivity(id) { return getActivities()[id]; }
 
-// 保存单个活动（原子写D1，只改这一条）
+// 保存单个活动（拆分写D1：元数据/白名单/异议各独立key）
 function saveActivity(act) {
   const cache = getActivities();
   cache[act.id] = act;
   _activitiesCache = cache;
   try { localStorage.setItem('activities_cache_v2', JSON.stringify(cache)); } catch {}
-  _remoteSet('activity_v1_' + act.id, act);
+  // 拆分存储：元数据不含大数组，避免单条超限
+  const { whitelist, objections, ...meta } = act;
+  _remoteSet('activity_v1_' + act.id, meta);
+  if (whitelist !== undefined) _remoteSet('wl_v1_' + act.id, whitelist || []);
+  if (objections !== undefined) _remoteSet('obj_v1_' + act.id, objections || []);
 }
 
 // saveData 兼容旧调用
@@ -673,15 +677,36 @@ function saveData(data) {
   const acts = (data && data.activities) ? data.activities : {};
   _activitiesCache = acts;
   try { localStorage.setItem('activities_cache_v2', JSON.stringify(acts)); } catch {}
-  Object.values(acts).forEach(act => _remoteSet('activity_v1_' + act.id, act));
+  Object.values(acts).forEach(act => saveActivity(act));
 }
 
-// 页面首次加载时从D1拉全量活动数据
+// 页面首次加载时从D1拉全量活动数据（拆分格式）
 async function loadActivitiesFromD1() {
-  const rows = await _remoteGetPrefix('activity_v1_');
-  if (rows && rows.length > 0) {
+  const [actRows, wlRows, objRows] = await Promise.all([
+    _remoteGetPrefix('activity_v1_'),
+    _remoteGetPrefix('wl_v1_'),
+    _remoteGetPrefix('obj_v1_')
+  ]);
+  if (actRows && actRows.length > 0) {
+    // 按 actId 建索引
+    const wlMap = {};
+    (wlRows||[]).forEach(r => {
+      const id = r.key.replace('wl_v1_','');
+      wlMap[id] = Array.isArray(r.value) ? r.value : [];
+    });
+    const objMap = {};
+    (objRows||[]).forEach(r => {
+      const id = r.key.replace('obj_v1_','');
+      objMap[id] = Array.isArray(r.value) ? r.value : [];
+    });
     const acts = {};
-    rows.forEach(r => { if (r.value && r.value.id) acts[r.value.id] = r.value; });
+    actRows.forEach(r => {
+      if (!r.value || !r.value.id) return;
+      const a = r.value;
+      a.whitelist = wlMap[a.id] || a.whitelist || [];
+      a.objections = objMap[a.id] || a.objections || [];
+      acts[a.id] = a;
+    });
     _activitiesCache = acts;
     try { localStorage.setItem('activities_cache_v2', JSON.stringify(acts)); } catch {}
     return;
@@ -691,7 +716,7 @@ async function loadActivitiesFromD1() {
   if (old && old.activities) {
     _activitiesCache = old.activities;
     try { localStorage.setItem('activities_cache_v2', JSON.stringify(old.activities)); } catch {}
-    Object.values(old.activities).forEach(act => _remoteSet('activity_v1_' + act.id, act));
+    Object.values(old.activities).forEach(act => saveActivity(act));
     console.log('[migrate] 旧活动数据迁移完成');
   }
 }
