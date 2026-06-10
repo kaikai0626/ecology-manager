@@ -2555,15 +2555,7 @@ function isWLOpen(act) {
 // 白名单公示Tab：输入作者ID查询是否在名单内
 function renderAuthorWhitelist() {
   const el = document.getElementById('author-whitelist-content');
-  const activities = Object.values(getActivities())
-    .filter(a => a.ip === STATE.ip && a.status !== 'draft' && (a.whitelist||[]).length > 0)
-    .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
-
-  if (!activities.length) {
-    el.innerHTML = '<div class="empty-state" style="padding:40px 0"><p>暂无白名单公示</p></div>';
-    return;
-  }
-
+  // 只显示查询框，不展示历史活动卡片
   el.innerHTML = `
     <div class="section" style="margin-top:20px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">
@@ -2579,26 +2571,7 @@ function renderAuthorWhitelist() {
       </div>
       <div id="wl-query-result"></div>
     </div>
-    ${activities.map(a => {
-      const wl = a.whitelist || [];
-      const wlOpen = isWLOpen(a);
-      return `<div class="section" style="margin-top:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-          <div style="width:3px;height:18px;background:var(--red);border-radius:2px"></div>
-          <span style="font-size:15px;font-weight:600">${escHtml(a.name||'活动')}</span>
-        </div>
-        <div style="font-size:13px;color:var(--gray)">
-          白名单共 <strong>${wl.length}</strong> 人
-          ${wlOpen
-            ? `· <span style="color:#1890ff">公示截止：${a.wlDeadline ? fmtDate(a.wlDeadline) : '待定'}</span>`
-            : '· <span style="color:#999">公示已结束</span>'}
-        </div>
-      </div>`;
-    }).join('')}
   `;
-
-  // 如果有上次查询的ID，自动查一次
-
 }
 
 function queryWLStatus() {
@@ -2632,14 +2605,15 @@ function queryWLStatus() {
 // 获奖公示Tab
 function renderAuthorWinners() {
   const el = document.getElementById('author-winners-content');
+  // 数据在 winnersPublish.list，status 需要是 winners_published 或 completed 且已 approvedAt
   const activities = Object.values(getActivities())
-    .filter(a => a.ip === STATE.ip && ['winners_published','completed'].includes(a.status) && (a.winners||[]).length > 0)
+    .filter(a => {
+      if (a.ip !== STATE.ip) return false;
+      if (!['winners_published','completed'].includes(a.status)) return false;
+      const wp = a.winnersPublish || {};
+      return wp.approvedAt && (wp.list||[]).length > 0;
+    })
     .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
-
-  if (!activities.length) {
-    el.innerHTML = '<div class="empty-state" style="padding:40px 0"><p>暂无获奖公示</p></div>';
-    return;
-  }
 
   el.innerHTML = `
     <div class="section" style="margin-top:20px">
@@ -2656,21 +2630,19 @@ function renderAuthorWinners() {
       </div>
       <div id="winner-query-result"></div>
     </div>
-    ${activities.map(a => {
-      const winners = a.winners || [];
-      const winnerLink = a.winnerPublishLink || '';
+    ${!activities.length ? '' : activities.map(a => {
+      const wp = a.winnersPublish || {};
+      const winnerLink = wp.link || '';
       return `<div class="section" style="margin-top:16px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div style="width:3px;height:18px;background:var(--red);border-radius:2px"></div>
           <span style="font-size:15px;font-weight:600">${escHtml(a.name||'活动')}</span>
         </div>
-        <div style="font-size:13px;color:var(--gray);margin-bottom:8px">共 <strong>${winners.length}</strong> 位获奖作者</div>
+        <div style="font-size:13px;color:var(--gray);margin-bottom:6px">共 <strong>${(wp.list||[]).length}</strong> 位获奖作者</div>
         ${winnerLink ? `<a href="${escHtml(winnerLink)}" target="_blank" style="font-size:13px;color:var(--red)">查看完整获奖公示 →</a>` : ''}
       </div>`;
     }).join('')}
   `;
-
-
 }
 
 function queryWinnerStatus() {
@@ -2683,12 +2655,18 @@ function queryWinnerStatus() {
   localStorage.setItem('author_last_id', authorId);
 
   const activities = Object.values(getActivities())
-    .filter(a => a.ip === STATE.ip && ['winners_published','completed'].includes(a.status) && (a.winners||[]).length > 0);
+    .filter(a => {
+      if (a.ip !== STATE.ip) return false;
+      if (!['winners_published','completed'].includes(a.status)) return false;
+      const wp = a.winnersPublish || {};
+      return wp.approvedAt && (wp.list||[]).length > 0;
+    });
 
-  if (!activities.length) { resultEl.innerHTML = ''; return; }
+  if (!activities.length) { resultEl.innerHTML = '<div style="color:#999;font-size:13px;padding:8px 0">暂无获奖公示</div>'; return; }
 
   resultEl.innerHTML = activities.map(a => {
-    const won = (a.winners||[]).some(r => r.authorId === authorId);
+    const wp = a.winnersPublish || {};
+    const won = (wp.list||[]).some(r => r.authorId === authorId);
     return won
       ? `<div style="padding:12px 16px;background:#f6ffed;border:1px solid #b7eb8f;border-radius:8px;margin-bottom:8px;font-size:14px">
            🏆 <strong>${escHtml(a.name||'活动')}</strong>：恭喜您已获奖！
@@ -2711,7 +2689,8 @@ function renderAuthorObjection() {
   // 可提交异议的活动（白名单公示期内 或 获奖异议期内）
   const submittableActs = activities.filter(a => {
     const canWLObj = (a.whitelist||[]).length > 0 && isWLOpen(a);
-    const hasWinners = ['winners_published','completed'].includes(a.status) && (a.winners||[]).length > 0;
+    const wp0 = a.winnersPublish || {};
+    const hasWinners = ['winners_published','completed'].includes(a.status) && wp0.approvedAt && (wp0.list||[]).length > 0;
     const winnerObjDeadline = a.winnerObjectionDeadline;
     const canWinnerObj = hasWinners && (!winnerObjDeadline || now_ts < new Date(winnerObjDeadline).getTime());
     return canWLObj || canWinnerObj;
@@ -2769,7 +2748,8 @@ function renderObjForm() {
   if (!a) return;
   const now_ts = Date.now();
   const canWLObj = (a.whitelist||[]).length > 0 && isWLOpen(a);
-  const hasWinners = ['winners_published','completed'].includes(a.status) && (a.winners||[]).length > 0;
+  const wp1 = a.winnersPublish || {};
+  const hasWinners = ['winners_published','completed'].includes(a.status) && wp1.approvedAt && (wp1.list||[]).length > 0;
   const winnerObjDeadline = a.winnerObjectionDeadline;
   const canWinnerObj = hasWinners && (!winnerObjDeadline || now_ts < new Date(winnerObjDeadline).getTime());
 
