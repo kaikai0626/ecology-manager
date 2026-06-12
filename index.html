@@ -2877,7 +2877,7 @@ function queryMyObjections() {
     return;
   }
 
-  const statusMap = { pending: '⏳ 待处理', approved: '✅ 已通过', rejected: '❌ 已拒绝' };
+  const statusMap = { pending: '⏳ 待处理', approved: '✅ 已通过', rejected: '❌ 已拒绝', vendor_pending: '🔄 处理中' };
   resultEl.innerHTML = myObjs.map(o => `
     <div style="padding:12px 16px;border:1px solid #e8e8e8;border-radius:8px;margin-bottom:8px;font-size:13px">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px">
@@ -2886,7 +2886,7 @@ function queryMyObjections() {
       </div>
       <div style="color:#666">异议类型：${o.type==='whitelist'?'白名单异议':'获奖异议'}</div>
       <div style="color:#666;margin-top:4px">说明：${escHtml(o.note)}</div>
-      ${o.replyNote ? `<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:4px;color:#333">运营回复：${escHtml(o.replyNote)}</div>` : ''}
+      ${(o.reply||o.rejectReason||o.vendorReply) ? `<div style="margin-top:6px;padding:8px;background:#f5f5f5;border-radius:4px;color:#333">运营回复：${escHtml(o.reply||o.rejectReason||o.vendorReply)}</div>` : ''}
       <div style="color:#bbb;font-size:12px;margin-top:6px">${o.submittedAt ? fmtDate(o.submittedAt) : ''}</div>
     </div>
   `).join('');
