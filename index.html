@@ -936,7 +936,13 @@ function filterIP(ip, el) {
 
 function renderOpsActivities() {
   const activities = getActivities();
-  const list = Object.values(activities).filter(a => STATE.opsIPFilter === 'all' || a.ip === STATE.opsIPFilter);
+  // 按 id 去重，再过滤 IP
+  const seen = new Set();
+  const list = Object.values(activities).filter(a => {
+    if (seen.has(a.id)) return false;
+    seen.add(a.id);
+    return STATE.opsIPFilter === 'all' || a.ip === STATE.opsIPFilter;
+  });
   list.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
   const el = document.getElementById('ops-activity-list');
   if (!list.length) {
@@ -1764,25 +1770,35 @@ function cancelNotesConfirm(actId) {
   toast('已撤销');
 }
 
+function toggleObjSection(id) {
+  const el = document.getElementById('opsobj-body-'+id);
+  const icon = document.getElementById('opsobj-icon-'+id);
+  if (!el) return;
+  const hidden = el.style.display === 'none';
+  el.style.display = hidden ? 'block' : 'none';
+  if (icon) icon.textContent = hidden ? '▲' : '▼';
+}
+
 function renderOpsObjections() {
   const activities = Object.values(getActivities()).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
   const el = document.getElementById('ops-objections-content');
   if (!activities.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">💬</div><div>暂无活动</div></div>'; return; }
-  el.innerHTML = activities.map((a,idx) => {
+  el.innerHTML = activities.map((a) => {
     const all = (a.objections||[]).map(o=>({...o,actName:a.name,actId:a.id,ip:a.ip}));
     const pending = all.filter(o=>o.status==='pending');
-    const bodyId = 'opsobj-'+a.id;
-    const isFirst = idx===0;
+    const bodyId = 'opsobj-body-'+a.id;
+    const defaultOpen = pending.length > 0;
     return `
     <div class="section" style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;cursor:pointer" onclick="toggleObjSection('${a.id}')">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-weight:600">${a.name}</span>
           ${statusBadgeWL(a.status, a.whitelist)}
-          ${pending.length ? `<span style="font-size:12px;color:var(--red);font-weight:600">● ${pending.length} 条待处理</span>` : '<span style="font-size:12px;color:#aaa">无待处理</span>'}
+          ${pending.length ? `<span style="font-size:12px;color:var(--red);font-weight:600">● ${pending.length} 条待处理</span>` : (all.length ? `<span style="font-size:12px;color:#aaa">共 ${all.length} 条</span>` : '<span style="font-size:12px;color:#aaa">无异议记录</span>')}
         </div>
+        <span id="opsobj-icon-${a.id}" style="color:#aaa;font-size:12px">${defaultOpen ? '▲' : '▼'}</span>
       </div>
-      <div id="${bodyId}" style="padding:0 18px 14px;">
+      <div id="${bodyId}" style="padding:0 18px 14px;display:${defaultOpen ? 'block' : 'none'}">
         ${!all.length ? '<div style="color:#aaa;font-size:13px">暂无异议记录</div>' : renderObjectionTable(all, true)}
       </div>
     </div>`;
@@ -2896,7 +2912,7 @@ function queryMyObjections() {
 function renderOpsWinners() {
   const el = document.getElementById('ops-winners-content');
   if (!el) return;
-  const acts = Object.values(getActivities()).sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+  const acts = Object.values(getActivities()).sort((a,b) => new Date(b.createdAt||0)-new Date(a.createdAt||0));
   if (!acts.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div>暂无活动</div></div>';
     return;
