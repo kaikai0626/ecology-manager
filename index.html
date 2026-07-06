@@ -1181,6 +1181,13 @@ function renderDetailBody(act) {
   `;
 }
 
+// 只读白名单表格（厂商端/作者端用）
+function renderPublicWLTable(wl) {
+  if (!wl || !wl.length) return '<div style="color:#aaa;font-size:13px;padding:12px 0">暂无数据</div>';
+  const rows = wl.map((r,i) => `<tr><td>${i+1}</td><td>${r.authorId||'-'}</td><td>${r.xhsId||'-'}</td></tr>`).join('');
+  return `<div class="table-wrap"><table><thead><tr><th>序号</th><th>作者ID</th><th>小红书号</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 function renderWLTable(wl, actId, editable) {
   if (!wl.length) return '<div style="color:#aaa;font-size:13px;padding:12px 0">暂无数据，可点击「导入表格」添加</div>';
   const rows = wl.map((r,i) => `<tr>
