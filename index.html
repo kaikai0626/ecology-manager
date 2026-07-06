@@ -923,8 +923,13 @@ function opsTab(tab) {
     else if (tab === 'objections') renderOpsObjections();
     else if (tab === 'backup') updateDataSummary();
   };
-  refreshOps();
-  loadActivitiesFromD1().then(refreshOps);
+  // 白名单/获奖/异议 Tab 必须等 D1 加载完成再渲染
+  if (['whitelist','winners','objections'].includes(tab)) {
+    loadActivitiesFromD1().then(refreshOps);
+  } else {
+    refreshOps();
+    loadActivitiesFromD1().then(refreshOps);
+  }
 }
 
 function filterIP(ip, el) {
@@ -1947,7 +1952,6 @@ function vendorTab(tab) {
   tabs.forEach(t => {
     document.getElementById('vendor-tab-'+t).style.display = t===tab ? 'block' : 'none';
   });
-  // 每次切 Tab 先渲染本地缓存，再后台从 D1 拉最新数据刷新
   const refreshVendor = () => {
     if (tab === 'activities') renderVendorActivities();
     else if (tab === 'whitelist') renderVendorWhitelist();
@@ -1955,8 +1959,13 @@ function vendorTab(tab) {
     else if (tab === 'winners') renderVendorWinners();
     else if (tab === 'objections') renderVendorObjections();
   };
-  refreshVendor();
-  loadActivitiesFromD1().then(refreshVendor);
+  // 白名单/获奖公示 Tab 必须等 D1 加载完成再渲染，其他 Tab 先用缓存
+  if (tab === 'whitelist' || tab === 'winners') {
+    loadActivitiesFromD1().then(refreshVendor);
+  } else {
+    refreshVendor();
+    loadActivitiesFromD1().then(refreshVendor);
+  }
 }
 
 function getVendorActivities() {
@@ -1998,7 +2007,7 @@ function renderVendorWhitelist() {
       return `
         <div class="section">
           <div class="section-title">${a.name}</div>
-          <div style="color:#aaa;font-size:13px">白名单尚未上传</div>
+          <div style="color:#aaa;font-size:13px">白名单尚未上传（如有疑问请点击右上角刺新按钞刷新页面）</div>
         </div>`;
     }
 
